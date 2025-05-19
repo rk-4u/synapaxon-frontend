@@ -134,7 +134,7 @@ const TestRunnerPage = () => {
       
       // Submit answers
       await axios.post(
-        'http://localhost:5000/api/tests/submit',
+        'https://synapaxon-backend.onrender.com/api/tests/submit',
         {
           testSessionId,
           answers: formattedAnswers
@@ -148,7 +148,7 @@ const TestRunnerPage = () => {
       );
       
  const resultsResponse = await axios.get(
-  `http://localhost:5000/api/tests/${testSessionId}`,
+  `https://synapaxon-backend.onrender.com/api/tests/${testSessionId}`,
   {
     headers: {
       'Authorization': `Bearer ${token}`

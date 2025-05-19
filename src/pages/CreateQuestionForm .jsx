@@ -158,7 +158,7 @@ const CreateQuestionForm = ({ onQuestionCreated = () => {} }) => {
       }
       
       const response = await axios.post(
-        'http://localhost:5000/api/questions',
+        'https://synapaxon-backend.onrender.com/api/questions',
         formData,
         {
           headers: {

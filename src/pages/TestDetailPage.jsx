@@ -16,7 +16,7 @@ const TestDetailPage = () => {
           throw new Error('Authentication token not found');
         }
         
-        const response = await fetch(`http://localhost:5000/api/tests/${testId}`, {
+        const response = await fetch(`https://synapaxon-backend.onrender.com/api/tests/${testId}`, {
           headers: {
             'Authorization': `Bearer ${token}`,
             'Content-Type': 'application/json'

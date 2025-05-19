@@ -119,7 +119,7 @@ export default function QuestionFilterPage() {
 
         const token = localStorage.getItem("authToken");
         const res = await axios.get(
-          `http://localhost:5000/api/questions?${params.toString()}`,
+          `https://synapaxon-backend.onrender.com/api/questions?${params.toString()}`,
           {
             headers: {
               Authorization: `Bearer ${token}`,
@@ -159,7 +159,7 @@ export default function QuestionFilterPage() {
 
       const token = localStorage.getItem("authToken");
       const res = await axios.post(
-        "http://localhost:5000/api/tests/start",
+        "https://synapaxon-backend.onrender.com/api/tests/start",
         payload,
         {
           headers: {

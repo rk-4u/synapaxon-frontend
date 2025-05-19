@@ -17,7 +17,7 @@ const TestHistoryPage = () => {
           throw new Error('Authentication token not found');
         }
         
-        const response = await fetch('http://localhost:5000/api/tests/history', {
+        const response = await fetch('https://synapaxon-backend.onrender.com/api/tests/history', {
           headers: {
             'Authorization': `Bearer ${token}`,
             'Content-Type': 'application/json'
