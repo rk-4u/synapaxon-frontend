@@ -4,11 +4,11 @@ import { Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider } from './contexts/AuthContext';
 import ProtectedRoute from './components/ProtectedRoute';
 
-
 import Login from './pages/Login';
 import Register from './pages/Register';
 import Dashboard from './pages/Dashboard';
-import QuestionFilterPage  from './pages/QuestionFilterPage';
+import QuestionFilterPage from './pages/QuestionFilterPage';
+import TestRunnerPage from './pages/TestRunnerPage';
 
 function App() {
   return (
@@ -27,8 +27,11 @@ function App() {
             <QuestionFilterPage />
           </ProtectedRoute>
         } />
-
-    
+        <Route path="/test-runner" element={
+          <ProtectedRoute>
+            <TestRunnerPage />
+          </ProtectedRoute>
+        } />
         <Route path="*" element={<Navigate to="/login" replace />} />
       </Routes>
     </AuthProvider>

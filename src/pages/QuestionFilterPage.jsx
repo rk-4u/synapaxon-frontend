@@ -1,3 +1,4 @@
+// QuestionFilterPage.jsx - UPDATED
 import React, { useState, useEffect } from 'react';
 import { ArrowLeft } from 'lucide-react';
 import axios from 'axios';
@@ -12,8 +13,8 @@ export default function QuestionFilterPage() {
   const [questions, setQuestions] = useState([]);
   const [testDuration, setTestDuration] = useState('60');
   const [numberOfItems, setNumberOfItems] = useState(5);
-  const [isLoading, setIsLoading] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
 
   const categories = [
     { name: 'Basic Sciences' },
@@ -40,60 +41,39 @@ export default function QuestionFilterPage() {
     Cardiology: ['Ischemic Heart Disease'],
   };
 
-  // Toggle Subject selection WITHOUT clearing topics automatically
   const toggleSubject = (subject) => {
-    setSelectedSubjects((prev) => {
-      if (prev.includes(subject)) {
-        // Removing subject - also remove any selected topics belonging to this subject
-        const updatedSubjects = prev.filter((s) => s !== subject);
+    setSelectedSubjects((prevSubjects) => {
+      const isSelected = prevSubjects.includes(subject);
+      const updatedSubjects = isSelected
+        ? prevSubjects.filter((s) => s !== subject)
+        : [...prevSubjects, subject];
 
-        // Remove topics that belong to the removed subject
+      if (isSelected) {
         const subjectTopics = topicsBySubject[subject] || [];
         const updatedTopics = selectedTopics.filter((t) => !subjectTopics.includes(t));
-
         setSelectedTopics(updatedTopics);
-        sessionStorage.setItem('selectedTopics', JSON.stringify(updatedTopics));
-        sessionStorage.setItem('selectedSubjects', JSON.stringify(updatedSubjects));
-        return updatedSubjects;
-      } else {
-        // Adding subject - keep existing topics untouched
-        const updatedSubjects = [...prev, subject];
-        sessionStorage.setItem('selectedSubjects', JSON.stringify(updatedSubjects));
-        return updatedSubjects;
       }
+
+      return updatedSubjects;
     });
   };
 
-  // Toggle Topic selection
   const toggleTopic = (topic) => {
     setSelectedTopics((prev) => {
       const updated = prev.includes(topic)
         ? prev.filter((t) => t !== topic)
         : [...prev, topic];
-      sessionStorage.setItem('selectedTopics', JSON.stringify(updated));
       return updated;
     });
   };
 
-  // On category change, reset subjects and topics and questions
   const onCategoryChange = (category) => {
     setSelectedCategory(category);
     setSelectedSubjects([]);
     setSelectedTopics([]);
     setQuestions([]);
-    sessionStorage.setItem('selectedSubjects', JSON.stringify([]));
-    sessionStorage.setItem('selectedTopics', JSON.stringify([]));
   };
 
-  // Load saved selections from sessionStorage on mount
-  useEffect(() => {
-    const savedSubjects = JSON.parse(sessionStorage.getItem('selectedSubjects') || '[]');
-    const savedTopics = JSON.parse(sessionStorage.getItem('selectedTopics') || '[]');
-    setSelectedSubjects(savedSubjects);
-    setSelectedTopics(savedTopics);
-  }, []);
-
-  // Fetch questions based on filters whenever they change
   useEffect(() => {
     if (!selectedCategory || selectedSubjects.length === 0) {
       setQuestions([]);
@@ -101,72 +81,86 @@ export default function QuestionFilterPage() {
     }
 
     const fetchQuestions = async () => {
-      setLoading(true);
+      setIsLoading(true);
       try {
-        // Use selectedTopics only if any topics selected, else fetch questions for all topics under subject(s)
         const params = new URLSearchParams({
           category: selectedCategory,
           subjects: selectedSubjects.join(','),
-          topic: selectedTopics.length > 0 ? selectedTopics.join(',') : '',
+          topic: selectedTopics.join(','),
           tags: 'MCQ',
           difficulty: 'medium',
           page: '1',
           limit: numberOfItems.toString(),
         });
 
-        const res = await axios.get(`http://localhost:5000/api/questions?${params.toString()}`);
+        const token = localStorage.getItem('authToken');
+        const res = await axios.get(`http://localhost:5000/api/questions?${params.toString()}`, {
+          headers: {
+            Authorization: `Bearer ${token}`
+          }
+        });
         setQuestions(res.data.success ? res.data.data : []);
-      } catch (err) {
-        console.error(err);
+      } catch (error) {
+        console.error("Failed to fetch questions:", error);
         setQuestions([]);
+      } finally {
+        setIsLoading(false);
       }
-      setLoading(false);
     };
 
     fetchQuestions();
   }, [selectedCategory, selectedSubjects, selectedTopics, numberOfItems]);
 
-  // Start Test API call with your requested format
   const startTest = async () => {
     if (selectedSubjects.length === 0) {
       alert("Please select at least one subject to start the test.");
-      return;
-    }
-    if (questions.length === 0) {
-      alert("No questions available to start the test. Please adjust your filters.");
       return;
     }
 
     setIsLoading(true);
 
     try {
-      // Build payload per your example: if topics selected, send them, else empty array for topics
       const payload = {
-        category: selectedCategory,
-        subject: selectedSubjects.length === 1 ? selectedSubjects[0] : selectedSubjects, // Send single or array
-        topic: selectedTopics.length > 0 ? (selectedTopics.length === 1 ? selectedTopics[0] : selectedTopics) : [],
-        tags: ['neurotransmitter', 'ANS'], // Example fixed tags, you might want to customize or remove this
-        difficulty: 'medium',
-        count: numberOfItems,
-      };
+  category: selectedCategory,
+  subject: selectedSubjects[0] || '', // send string
+  topic: selectedTopics[0] || '',     // send string
+  tags: ['MCQ'],
+  difficulty: 'medium',
+  count: numberOfItems,
+  duration: parseInt(testDuration)
+};
 
-      // For backward compatibility, if only one subject, send string, else array
-      // Same for topic
 
-      // POST to /api/tests/start per your request
-      const response = await axios.post('http://localhost:5000/api/tests/start', payload);
+      const token = localStorage.getItem('authToken');
+      const res = await axios.post(
+        'http://localhost:5000/api/tests/start',
+        payload,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
 
-      if (response.data.success) {
+      if (res.data.success) {
+        const { testSessionId, questions = [] } = res.data.data;
+
+        if (!testSessionId || questions.length === 0) {
+          throw new Error("Invalid test session or empty questions.");
+        }
+
+        // Use React Router's navigate with state instead of sessionStorage
         navigate('/test-runner', {
           state: {
-            testSessionId: response.data.testSessionId,
+            testSessionId,
             questions,
-            duration: parseInt(testDuration),
-          },
+            testDuration
+          }
         });
       } else {
-        throw new Error(response.data.message || "Failed to start test");
+        throw new Error(res.data.message || "Test start failed");
       }
+
     } catch (err) {
       console.error("Error starting test:", err);
       alert("Failed to start test. Please try again.");
@@ -328,9 +322,9 @@ export default function QuestionFilterPage() {
             </button>
             <button
               onClick={startTest}
-              disabled={isLoading || questions.length === 0 || selectedSubjects.length === 0}
+              disabled={isLoading || selectedSubjects.length === 0}
               className={`${
-                questions.length > 0 && selectedSubjects.length > 0
+                selectedSubjects.length > 0
                   ? 'bg-green-600 hover:bg-green-700 text-white'
                   : 'bg-gray-200 text-gray-700 cursor-not-allowed'
               } px-8 py-2 rounded`}
