@@ -147,16 +147,15 @@ const TestRunnerPage = () => {
         }
       );
       
-      // Fetch test results
-      const resultsResponse = await axios.get(
-        `http://localhost:5000/api/tests/${testSessionId}/results`,
-        {
-          headers: {
-            'Authorization': `Bearer ${token}`
-          }
-        }
-      );
-      
+ const resultsResponse = await axios.get(
+  `http://localhost:5000/api/tests/${testSessionId}`,
+  {
+    headers: {
+      'Authorization': `Bearer ${token}`
+    }
+  }
+);
+
       // Set test as completed and show results
       setTestCompleted(true);
       setTestResults(resultsResponse.data.data || resultsResponse.data);
@@ -228,8 +227,50 @@ const TestRunnerPage = () => {
               <h2 className="text-2xl font-semibold mb-4">Your Results</h2>
               <div className="mb-8 p-4 bg-gray-50 rounded-lg">
                 <p className="text-lg"><strong>Score:</strong> {testResults.score || 'N/A'}</p>
-                <p className="text-lg"><strong>Correct Answers:</strong> {testResults.correctAnswers || 0}/{questions.length}</p>
-                <p className="text-lg"><strong>Time Taken:</strong> {testResults.timeTaken || 'N/A'}</p>
+                <h3 className="text-xl font-bold mb-4">Question Review</h3>
+<ul className="space-y-6">
+  {testResults.questions.map((question, index) => {
+    const answerData = testResults.answers.find(
+      a => a.question === question._id
+    );
+    const selectedAnswer = answerData?.selectedAnswer;
+    const isCorrect = answerData?.isCorrect;
+
+    return (
+      <li key={question._id} className="border rounded p-4 bg-white">
+        <h4 className="font-semibold mb-2 text-gray-800">
+          Q{index + 1}: {question.questionText}
+        </h4>
+
+        <ul className="space-y-2 mb-2">
+          {question.options.map((opt, idx) => {
+            const isRight = idx === question.correctAnswer;
+            const isUserSelected = idx === selectedAnswer;
+
+            let bg = 'bg-white';
+            if (isUserSelected && isRight) bg = 'bg-green-100';
+            else if (isUserSelected && !isRight) bg = 'bg-red-100';
+            else if (!isUserSelected && isRight) bg = 'bg-green-50';
+
+            return (
+              <li key={idx} className={`p-2 rounded ${bg}`}>
+                <strong>{String.fromCharCode(65 + idx)}.</strong> {opt}
+              </li>
+            );
+          })}
+        </ul>
+
+        <p className={`text-sm font-medium ${isCorrect ? 'text-green-700' : 'text-red-700'}`}>
+          Your answer was {isCorrect ? 'correct ✅' : 'incorrect ❌'}
+        </p>
+        {question.explanation && (
+          <p className="text-sm text-gray-600 mt-2"><strong>Explanation:</strong> {question.explanation}</p>
+        )}
+      </li>
+    );
+  })}
+</ul>
+
               </div>
               <button
                 onClick={handleBackToDashboard}
