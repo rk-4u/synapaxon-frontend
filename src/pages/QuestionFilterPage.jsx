@@ -27,7 +27,7 @@ export default function QuestionFilterPage() {
       subjects.map(async (subject) => {
         try {
           const res = await axios.get(
-            `https://synapaxon-backend.onrender.com/api/questions?category=${selectedCategory}&subject=${subject}`,
+            `http://localhost:5000/api/questions?category=${selectedCategory}&subject=${subject}&difficulty=${difficulty}`,
             {
               headers: { Authorization: `Bearer ${token}` },
             }
@@ -55,7 +55,7 @@ export default function QuestionFilterPage() {
     setSelectedSubjects([]);
     setSelectedTopics([]);
     fetchCounts();
-  }, [selectedCategory]);
+  }, [selectedCategory, difficulty]);
 
   const toggleSubject = (subject) => {
     setSelectedSubjects((prev) =>
@@ -82,8 +82,8 @@ export default function QuestionFilterPage() {
     try {
       const payload = {
             category: selectedCategory,
-            subjects: selectedSubjects,  // <-- send full array
-            topics: selectedTopics,      // <-- send full array
+            subjects: selectedSubjects,  
+            topics: selectedTopics,     
             difficulty,
             count: numberOfItems,
             duration: parseInt(testDuration),
@@ -91,7 +91,7 @@ export default function QuestionFilterPage() {
 
 
       const res = await axios.post(
-        "https://synapaxon-backend.onrender.com/api/tests/start",
+        "http://localhost:5000/api/tests/start",
         payload,
         {
           headers: {
@@ -163,19 +163,22 @@ export default function QuestionFilterPage() {
                 const isSelected = selectedSubjects.includes(subject);
                 return (
                   <label
-                    key={subject}
-                    className={`px-4 py-2 rounded border cursor-pointer select-none flex items-center space-x-2 ${
-                      isSelected
-                        ? "bg-blue-600 text-white border-blue-600"
-                        : "bg-white text-blue-600 border-blue-600 hover:bg-blue-100"
-                    }`}
-                  >
-                    <input
-                      type="checkbox"
-                      checked={isSelected}
-                      onChange={() => toggleSubject(subject)}
-                      className="hidden"
-                    />
+                        key={subject}
+                        className={`px-4 py-2 rounded border select-none flex items-center space-x-2 ${
+                          isSelected
+                            ? "bg-blue-600 text-white border-blue-600"
+                            : count === 0
+                            ? "bg-gray-200 text-gray-400 border-gray-300 cursor-not-allowed"
+                            : "bg-white text-blue-600 border-blue-600 hover:bg-blue-100 cursor-pointer"
+                        }`}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={isSelected}
+                          disabled={count === 0}
+                          onChange={() => toggleSubject(subject)}
+                          className="hidden"
+                      />
                     <span>{subject}</span>
                     <span className={`${count > 0 ? "text-green-600" : "text-red-500"} font-bold`}>
                       Q{count}
@@ -200,19 +203,23 @@ export default function QuestionFilterPage() {
 
                   return (
                     <label
-                      key={key}
-                      className={`px-4 py-2 rounded cursor-pointer select-none border flex items-center space-x-2 ${
-                        isSelected
-                          ? "bg-blue-600 text-white border-blue-600"
-                          : "bg-white border-gray-300 text-gray-700 hover:bg-blue-100"
-                      }`}
-                    >
-                      <input
-                        type="checkbox"
-                        className="hidden"
-                        checked={isSelected}
-                        onChange={() => toggleTopic(topic)}
-                      />
+                          key={key}
+                          className={`px-4 py-2 rounded border select-none flex items-center space-x-2 ${
+                            isSelected
+                              ? "bg-blue-600 text-white border-blue-600"
+                              : count === 0
+                              ? "bg-gray-200 text-gray-400 border-gray-300 cursor-not-allowed"
+                              : "bg-white text-gray-700 border-gray-300 hover:bg-blue-100 cursor-pointer"
+                          }`}
+                        >
+                          <input
+                            type="checkbox"
+                            checked={isSelected}
+                            disabled={count === 0}
+                            onChange={() => toggleTopic(topic)}
+                            className="hidden"
+                        />
+
                       <span>{topic}</span>
                       <span className={`${count > 0 ? "text-green-600" : "text-red-500"} font-bold`}>
                         Q{count}

@@ -115,7 +115,7 @@ const TestRunnerPage = () => {
   const handleNextQuestion = () => {
     if (currentQuestionIndex < questions.length - 1) {
       setCurrentQuestionIndex(prevIndex => prevIndex + 1);
-      setTimeLeft(parseInt(testData.testDuration || '60')); // Reset timer for next question
+      setTimeLeft(parseInt(testData.testDuration || '60')); 
     } else {
       handleSubmitTest();
     }
@@ -127,14 +127,17 @@ const TestRunnerPage = () => {
       setLoading(true);
       
       // Format answers for API
-      const formattedAnswers = userAnswers.map(answer => ({
-        questionId: answer.questionId,
-        selectedAnswer: answer.selectedAnswer !== null ? answer.selectedAnswer : 4 
-      }));
+      const formattedAnswers = questions.map((q, index) => {
+        const userAnswer = userAnswers.find(a => a.questionId === q._id);
+        return {
+          questionId: q._id,
+          selectedAnswer: userAnswer?.selectedAnswer ?? -1
+        };
+      });
       
       // Submit answers
       await axios.post(
-        'https://synapaxon-backend.onrender.com/api/tests/submit',
+        'http://localhost:5000/api/tests/submit',
         {
           testSessionId,
           answers: formattedAnswers
@@ -148,7 +151,7 @@ const TestRunnerPage = () => {
       );
       
  const resultsResponse = await axios.get(
-  `https://synapaxon-backend.onrender.com/api/tests/${testSessionId}`,
+  `http://localhost:5000/api/tests/${testSessionId}`,
   {
     headers: {
       'Authorization': `Bearer ${token}`
