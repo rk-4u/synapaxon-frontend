@@ -2,6 +2,7 @@
 import React, { useState } from 'react';
 import { X, PlusCircle, Image, CheckCircle } from 'lucide-react';
 import axios from 'axios';
+import { subjectsByCategory, topicsBySubject } from '../data/questionData'; 
 
 const CreateQuestionForm = ({ onQuestionCreated = () => {} }) => {
   const [formData, setFormData] = useState({
@@ -25,27 +26,6 @@ const CreateQuestionForm = ({ onQuestionCreated = () => {} }) => {
   const [successMessage, setSuccessMessage] = useState('');
   const [errorMessage, setErrorMessage] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
-
-  // Subject options based on category
-  const subjectsByCategory = {
-    'Basic Sciences': ['Neuroscience', 'Physiology', 'Anatomy', 'Immunology', 'Histology', 'Microbiology'],
-    'Organ Systems': ['Respiratory System', 'Renal System'],
-    'Clinical Specialties': ['Pharmacology', 'Cardiology']
-  };
-
-  // Topic options based on subject
-  const topicsBySubject = {
-    Neuroscience: ['Autonomic Nervous System', 'Cranial Nerves'],
-    Physiology: ['Endocrine System'],
-    Anatomy: ['Cerebral Circulation'],
-    Immunology: ['Hypersensitivity Reactions'],
-    Histology: ['Respiratory Epithelium'],
-    Microbiology: ['Antibiotics'],
-    'Respiratory System': ['Pulmonary Physiology'],
-    'Renal System': ['Nephrotic Syndrome'],
-    Pharmacology: ['Cardiovascular Drugs'],
-    Cardiology: ['Ischemic Heart Disease']
-  };
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;

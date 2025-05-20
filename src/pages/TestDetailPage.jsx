@@ -105,7 +105,7 @@ const TestDetailPage = () => {
     <div className="container mx-auto px-4 py-8 max-w-5xl">
       <div className="mb-4">
         <button 
-          onClick={() => navigate('/test-history')}
+          onClick={() => navigate('/dashboard')}
           className="flex items-center text-blue-600 hover:text-blue-800"
         >
           <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">

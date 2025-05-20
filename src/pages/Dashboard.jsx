@@ -4,6 +4,7 @@ import { useAuth } from '../contexts/AuthContext';
 import QuestionFilterPage from './QuestionFilterPage';
 import TestHistoryPage from './TestHistoryPage';
 import CreateQuestionForm from './CreateQuestionForm ';
+import EnhancedCreateQuestionForm from './EnhancedCreateQuestionForm';
 
 function Dashboard() {
   const { currentUser, logout } = useAuth();
@@ -19,8 +20,9 @@ function Dashboard() {
         return <QuestionFilterPage />;
       case 'history':
         return <TestHistoryPage />;
-      case 'create':
-        return <CreateQuestionForm />;
+      
+      case 'enhanced-create':
+        return <EnhancedCreateQuestionForm />;
       default:
         return (
           <div className="bg-white p-8 rounded-lg shadow-md">
@@ -45,7 +47,7 @@ function Dashboard() {
               </div>
               
               <div 
-                onClick={() => handleNavClick('create')}
+                onClick={() => handleNavClick('enhanced-create')}
                 className="bg-purple-100 p-6 rounded-xl shadow hover:shadow-lg transition duration-200 cursor-pointer"
               >
                 <h2 className="text-xl font-semibold mb-2">Create Question</h2>
@@ -100,14 +102,14 @@ function Dashboard() {
               </button>
               
               <button
-                onClick={() => handleNavClick('create')}
+                onClick={() => handleNavClick('enhanced-create')}
                 className={`px-4 py-2 rounded-md transition ${
-                  activeComponent === 'create' 
+                  activeComponent === 'enhanced-create' 
                     ? 'bg-blue-100 text-blue-800 font-medium' 
                     : 'bg-blue-700 hover:bg-blue-600 text-white'
                 }`}
               >
-                Create Question
+                Enhanced Create Question
               </button>
             </nav>
             
