@@ -1,6 +1,6 @@
 // EnhancedCreateQuestionForm.jsx
 import React, { useState } from 'react';
-import { X, PlusCircle, Upload, Image, File, CheckCircle, Plus, Trash2 } from 'lucide-react';
+import { X, PlusCircle, Upload, Image, File, CheckCircle, Plus, Trash2, Paperclip } from 'lucide-react';
 import axios from 'axios';
 import { subjectsByCategory, topicsBySubject } from '../data/questionData';
 
@@ -15,7 +15,9 @@ const EnhancedCreateQuestionForm = ({ onQuestionCreated = () => {} }) => {
     subject: '',
     topic: '',
     tags: [],
-    media: null,
+    questionMedia: null,
+    explanationMedia: null,
+    optionMedia: Array(2).fill(null), // Start with 2 null media entries
     sourceUrl: ''
   });
 
@@ -23,11 +25,14 @@ const EnhancedCreateQuestionForm = ({ onQuestionCreated = () => {} }) => {
   const [successMessage, setSuccessMessage] = useState('');
   const [errorMessage, setErrorMessage] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  
+  // Media upload states
+  const [uploadingFor, setUploadingFor] = useState(null); // 'question', 'explanation', or index for options
   const [uploadedFile, setUploadedFile] = useState(null);
   const [isUploading, setIsUploading] = useState(false);
   const [uploadSuccess, setUploadSuccess] = useState(false);
   const [uploadError, setUploadError] = useState('');
-
+  
   const handleInputChange = (e) => {
     const { name, value } = e.target;
     setFormData({ ...formData, [name]: value });
@@ -65,7 +70,8 @@ const EnhancedCreateQuestionForm = ({ onQuestionCreated = () => {} }) => {
   const handleAddOption = () => {
     setFormData({
       ...formData,
-      options: [...formData.options, '']
+      options: [...formData.options, ''],
+      optionMedia: [...formData.optionMedia, null] // Add null media entry for new option
     });
   };
 
@@ -79,6 +85,10 @@ const EnhancedCreateQuestionForm = ({ onQuestionCreated = () => {} }) => {
     const updatedOptions = [...formData.options];
     updatedOptions.splice(index, 1);
     
+    // Remove option media
+    const updatedOptionMedia = [...formData.optionMedia];
+    updatedOptionMedia.splice(index, 1);
+    
     // Update correctAnswer if needed
     let newCorrectAnswer = formData.correctAnswer;
     if (formData.correctAnswer === index) {
@@ -90,6 +100,7 @@ const EnhancedCreateQuestionForm = ({ onQuestionCreated = () => {} }) => {
     setFormData({
       ...formData,
       options: updatedOptions,
+      optionMedia: updatedOptionMedia,
       correctAnswer: newCorrectAnswer
     });
   };
@@ -124,12 +135,15 @@ const EnhancedCreateQuestionForm = ({ onQuestionCreated = () => {} }) => {
       setUploadedFile(file);
       setUploadSuccess(false);
       setUploadError('');
-      // Reset any previously uploaded media
-      setFormData({
-        ...formData,
-        media: null
-      });
     }
+  };
+
+  const startMediaUpload = (target) => {
+    // target can be 'question', 'explanation', or a number for option index
+    setUploadingFor(target);
+    setUploadedFile(null);
+    setUploadSuccess(false);
+    setUploadError('');
   };
 
   const handleUploadMedia = async () => {
@@ -166,16 +180,26 @@ const EnhancedCreateQuestionForm = ({ onQuestionCreated = () => {} }) => {
       
       if (response.data.success) {
         setUploadSuccess(true);
-        setFormData({
-          ...formData,
-          media: {
-            type: response.data.data.mimetype.split('/')[0], // Extract type (image, video, etc.)
-            path: response.data.data.path,
-            filename: response.data.data.filename,
-            originalname: response.data.data.originalname,
-            mimetype: response.data.data.mimetype
-          }
-        });
+        
+        const mediaObject = {
+          type: response.data.data.mimetype.split('/')[0], // Extract type (image, video, etc.)
+          path: response.data.data.path,
+          filename: response.data.data.filename,
+          originalname: response.data.data.originalname,
+          mimetype: response.data.data.mimetype
+        };
+        
+        // Update the appropriate media field based on uploadingFor
+        if (uploadingFor === 'question') {
+          setFormData({...formData, questionMedia: mediaObject});
+        } else if (uploadingFor === 'explanation') {
+          setFormData({...formData, explanationMedia: mediaObject});
+        } else if (typeof uploadingFor === 'number') {
+          // For options
+          const updatedOptionMedia = [...formData.optionMedia];
+          updatedOptionMedia[uploadingFor] = mediaObject;
+          setFormData({...formData, optionMedia: updatedOptionMedia});
+        }
       } else {
         setUploadError(response.data.message || 'Failed to upload file');
       }
@@ -187,14 +211,31 @@ const EnhancedCreateQuestionForm = ({ onQuestionCreated = () => {} }) => {
     }
   };
 
-  const handleRemoveUploadedFile = () => {
+  const handleRemoveUploadedMedia = (target) => {
+    // Remove media for the specified target
+    if (target === 'question') {
+      setFormData({...formData, questionMedia: null});
+    } else if (target === 'explanation') {
+      setFormData({...formData, explanationMedia: null});
+    } else if (typeof target === 'number') {
+      const updatedOptionMedia = [...formData.optionMedia];
+      updatedOptionMedia[target] = null;
+      setFormData({...formData, optionMedia: updatedOptionMedia});
+    }
+    
+    // Reset upload states if we're currently uploading for this target
+    if (uploadingFor === target) {
+      setUploadedFile(null);
+      setUploadSuccess(false);
+      setUploadError('');
+    }
+  };
+
+  const handleCancelUpload = () => {
+    setUploadingFor(null);
     setUploadedFile(null);
     setUploadSuccess(false);
     setUploadError('');
-    setFormData({
-      ...formData,
-      media: null
-    });
   };
 
   const handleSubmit = async (e) => {
@@ -221,10 +262,6 @@ const EnhancedCreateQuestionForm = ({ onQuestionCreated = () => {} }) => {
       return;
     }
     
-    if (!formData.topic) {
-      setErrorMessage('Please select a topic');
-      return;
-    }
 
     try {
       setIsSubmitting(true);
@@ -237,9 +274,28 @@ const EnhancedCreateQuestionForm = ({ onQuestionCreated = () => {} }) => {
         return;
       }
       
+      // Create submission data structure
+      const submissionData = {
+        questionText: formData.questionText,
+        explanation: formData.explanation,
+        options: formData.options.map((text, index) => ({
+          text,
+          media: formData.optionMedia[index]
+        })),
+        correctAnswer: formData.correctAnswer,
+        difficulty: formData.difficulty,
+        category: formData.category,
+        subject: formData.subject,
+        topic: formData.topic,
+        tags: formData.tags,
+        questionMedia: formData.questionMedia,
+        explanationMedia: formData.explanationMedia,
+        sourceUrl: formData.sourceUrl
+      };
+      
       const response = await axios.post(
         'https://synapaxon-backend.onrender.com/api/questions',
-        formData,
+        submissionData,
         {
           headers: {
             Authorization: `Bearer ${token}`,
@@ -261,11 +317,11 @@ const EnhancedCreateQuestionForm = ({ onQuestionCreated = () => {} }) => {
           subject: '',
           topic: '',
           tags: [],
-          media: null,
+          questionMedia: null,
+          explanationMedia: null,
+          optionMedia: Array(2).fill(null),
           sourceUrl: ''
         });
-        setUploadedFile(null);
-        setUploadSuccess(false);
         
         // Trigger callback
         onQuestionCreated(response.data.data);
@@ -283,6 +339,45 @@ const EnhancedCreateQuestionForm = ({ onQuestionCreated = () => {} }) => {
     } finally {
       setIsSubmitting(false);
     }
+  };
+  
+  // Helper function to render media upload button
+  const renderMediaButton = (target, media) => {
+    if (media) {
+      // Show the attached media info
+      return (
+        <div className="flex items-center mt-2 p-2 bg-blue-50 border border-blue-200 rounded-md text-sm">
+          <div className="flex items-center flex-1 overflow-hidden">
+            {media.type === 'image' ? (
+              <Image className="w-4 h-4 mr-2 text-blue-500" />
+            ) : (
+              <File className="w-4 h-4 mr-2 text-blue-500" />
+            )}
+            <span className="truncate">{media.originalname}</span>
+          </div>
+          <button
+            type="button"
+            onClick={() => handleRemoveUploadedMedia(target)}
+            className="ml-2 p-1 text-gray-500 hover:text-red-500"
+            title="Remove media"
+          >
+            <X size={16} />
+          </button>
+        </div>
+      );
+    }
+    
+    // Show the "Add Media" button
+    return (
+      <button
+        type="button"
+        onClick={() => startMediaUpload(target)}
+        className="mt-2 flex items-center text-sm text-blue-600 hover:text-blue-800"
+      >
+        <Paperclip size={14} className="mr-1" />
+        Add Media (Optional)
+      </button>
+    );
   };
 
   // Helper function to get file icon based on mimetype
@@ -320,8 +415,224 @@ const EnhancedCreateQuestionForm = ({ onQuestionCreated = () => {} }) => {
         </div>
       )}
       
+      {/* Media Upload Modal */}
+      {uploadingFor !== null && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 w-full max-w-md">
+            <h3 className="text-lg font-semibold mb-4">
+              Upload Media {
+                uploadingFor === 'question' ? 'for Question' :
+                uploadingFor === 'explanation' ? 'for Explanation' :
+                `for Option ${String.fromCharCode(65 + uploadingFor)}`
+              }
+            </h3>
+            
+            <div className="mb-4">
+              {!uploadedFile ? (
+                <div className="flex items-center justify-center w-full">
+                  <label className="flex flex-col items-center justify-center w-full h-32 border-2 border-dashed rounded-lg cursor-pointer bg-gray-50 hover:bg-gray-100">
+                    <div className="flex flex-col items-center justify-center pt-5 pb-6">
+                      <Upload className="w-8 h-8 mb-3 text-gray-400" />
+                      <p className="mb-2 text-sm text-gray-500">
+                        <span className="font-semibold">Click to upload</span> or drag and drop
+                      </p>
+                      <p className="text-xs text-gray-500">
+                        Images, videos, PDFs (MAX. 10MB)
+                      </p>
+                    </div>
+                    <input 
+                      type="file" 
+                      className="hidden" 
+                      onChange={handleFileChange} 
+                      accept="image/*,video/*,application/pdf"
+                    />
+                  </label>
+                </div>
+              ) : (
+                <div className="flex items-center justify-between p-3 bg-white border rounded-lg">
+                  <div className="flex items-center overflow-hidden">
+                    {getFileIcon(uploadedFile)}
+                    <span className="truncate max-w-xs">{uploadedFile.name}</span>
+                    <span className="text-xs text-gray-500 ml-2">
+                      ({Math.round(uploadedFile.size / 1024)} KB)
+                    </span>
+                  </div>
+                  <div className="flex items-center">
+                    {uploadSuccess && (
+                      <CheckCircle className="w-5 h-5 text-green-500 mr-2" />
+                    )}
+                    <button
+                      type="button"
+                      onClick={() => setUploadedFile(null)}
+                      className="p-1 text-gray-500 rounded-full hover:bg-gray-100"
+                    >
+                      <X size={18} />
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+            
+            {uploadError && (
+              <div className="mb-4 text-sm text-red-600">
+                {uploadError}
+              </div>
+            )}
+            
+            {uploadSuccess && (
+              <div className="mb-4 text-sm text-green-600 flex items-center">
+                <CheckCircle size={16} className="mr-1" />
+                File uploaded successfully!
+              </div>
+            )}
+            
+            <div className="flex justify-end space-x-3">
+              <button
+                type="button"
+                onClick={handleCancelUpload}
+                className="px-4 py-2 border border-gray-300 rounded text-gray-700 hover:bg-gray-100"
+              >
+                Cancel
+              </button>
+              
+              {uploadedFile && !uploadSuccess && (
+                <button
+                  type="button"
+                  onClick={handleUploadMedia}
+                  disabled={isUploading}
+                  className={`px-4 py-2 rounded ${
+                    isUploading
+                      ? 'bg-gray-400 cursor-not-allowed'
+                      : 'bg-blue-600 hover:bg-blue-700 text-white'
+                  } flex items-center`}
+                >
+                  <Upload size={16} className="mr-2" />
+                  {isUploading ? 'Uploading...' : 'Upload'}
+                </button>
+              )}
+              
+              {uploadSuccess && (
+                <button
+                  type="button"
+                  onClick={() => setUploadingFor(null)}
+                  className="px-4 py-2 rounded bg-green-600 hover:bg-green-700 text-white"
+                >
+                  Done
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+      
       <form onSubmit={handleSubmit}>
-        {/* Category Tabs */}
+        {/* Question Text */}
+        <div className="mb-6">
+          <label className="block text-gray-700 font-medium mb-2" htmlFor="questionText">
+            Question Text*
+          </label>
+          <textarea
+            id="questionText"
+            name="questionText"
+            value={formData.questionText}
+            onChange={handleInputChange}
+            rows="3"
+            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+            placeholder="Enter the question text here..."
+            required
+          />
+          {renderMediaButton('question', formData.questionMedia)}
+        </div>
+        
+        {/* Options and Correct Answer */}
+        <div className="mb-6">
+          <div className="flex justify-between items-center mb-2">
+            <label className="block text-gray-700 font-medium">
+              Options* (Select the correct answer)
+            </label>
+            <button
+              type="button"
+              onClick={handleAddOption}
+              className="flex items-center text-blue-600 hover:text-blue-800"
+            >
+              <Plus size={16} className="mr-1" /> Add Option
+            </button>
+          </div>
+          <div className="space-y-3">
+            {formData.options.map((option, index) => (
+              <div key={index} className="flex flex-col">
+                <div className="flex items-center">
+                  <div
+                    onClick={() => handleCorrectAnswerSelect(index)}
+                    className={`flex-shrink-0 w-6 h-6 rounded-full mr-3 flex items-center justify-center cursor-pointer ${
+                      formData.correctAnswer === index
+                        ? 'bg-green-500 text-white'
+                        : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                    }`}
+                  >
+                    {String.fromCharCode(65 + index)} {/* A, B, C, etc. */}
+                  </div>
+                  <input
+                    type="text"
+                    value={option}
+                    onChange={(e) => handleOptionChange(index, e.target.value)}
+                    className="flex-grow px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    placeholder={`Option ${String.fromCharCode(65 + index)}`}
+                    required
+                  />
+                  <button
+                    type="button"
+                    onClick={() => handleRemoveOption(index)}
+                    className="ml-2 p-1 text-gray-500 hover:text-red-500"
+                    title="Remove option"
+                  >
+                    <Trash2 size={18} />
+                  </button>
+                </div>
+                {renderMediaButton(index, formData.optionMedia[index])}
+              </div>
+            ))}
+          </div>
+        </div>
+        
+        {/* Explanation */}
+        <div className="mb-6">
+          <label className="block text-gray-700 font-medium mb-2" htmlFor="explanation">
+            Explanation
+          </label>
+          <textarea
+            id="explanation"
+            name="explanation"
+            value={formData.explanation}
+            onChange={handleInputChange}
+            rows="3"
+            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+            placeholder="Explain the correct answer..."
+          />
+          {renderMediaButton('explanation', formData.explanationMedia)}
+        </div>
+        
+        {/* Difficulty */}
+        <div className="mb-6">
+          <label className="block text-gray-700 font-medium mb-2">Difficulty*</label>
+          <div className="flex space-x-4">
+            {['easy', 'medium', 'hard'].map((level) => (
+              <label key={level} className="flex items-center cursor-pointer">
+                <input
+                  type="radio"
+                  name="difficulty"
+                  value={level}
+                  checked={formData.difficulty === level}
+                  onChange={handleInputChange}
+                  className="mr-2 h-4 w-4"
+                />
+                <span className="capitalize">{level}</span>
+              </label>
+            ))}
+          </div>
+        </div>
+        
+        {/* Category Buttons */}
         <div className="mb-6">
           <label className="block text-gray-700 font-medium mb-2">Category*</label>
           <div className="flex gap-2">
@@ -360,288 +671,52 @@ const EnhancedCreateQuestionForm = ({ onQuestionCreated = () => {} }) => {
             </button>
           </div>
         </div>
-        {/* Subject Buttons in Grid */}
-            <div className="mb-6">
-            <label className="block text-gray-700 font-medium mb-2"> Select A Subject for the Related Question then you have options to select topics under those subjects.</label>
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
-                {formData.category && subjectsByCategory[formData.category]?.map((subject) => (
-                <button
-                    type="button"
-                    key={subject}
-                    onClick={() => setFormData({ ...formData, subject, topic: '' })}
-                    className={`py-2 px-3 rounded text-sm font-medium border transition ${
-                    formData.subject === subject
-                        ? 'bg-blue-500 text-white border-blue-500'
-                        : 'bg-blue-50 text-blue-700 border-blue-200 hover:bg-blue-100'
-                    }`}
-                >
-                    {subject}
-                </button>
-                ))}
-            </div>
-            </div>
-
-            {/* Topics Row (Visible only if subject selected) */}
-            {formData.subject && (
-            <div className="mb-6">
-                <label className="block text-gray-700 font-medium mb-2">Select Topic for the Related Question</label>
-                <div className="flex flex-wrap gap-2">
-                {topicsBySubject[formData.subject]?.map((topic) => (
-                    <button
-                    type="button"
-                    key={topic}
-                    onClick={() => setFormData({ ...formData, topic })}
-                    className={`py-2 px-4 rounded text-sm font-medium border transition ${
-                        formData.topic === topic
-                        ? 'bg-green-500 text-white border-green-500'
-                        : 'bg-green-50 text-green-700 border-green-200 hover:bg-green-100'
-                    }`}
-                    >
-                    {topic}
-                    </button>
-                ))}
-                </div>
-            </div>
-            )}
-
         
-        {/* Media Upload */}
-        <div className="mb-6 p-4 bg-gray-50 rounded-lg border border-dashed border-gray-300">
-          <h3 className="text-lg font-medium text-gray-700 mb-3">Media Upload (Optional)</h3>
-          
-          <div className="mb-3">
-            {!uploadedFile ? (
-              <div className="flex items-center justify-center w-full">
-                <label className="flex flex-col items-center justify-center w-full h-32 border-2 border-dashed rounded-lg cursor-pointer bg-gray-50 hover:bg-gray-100">
-                  <div className="flex flex-col items-center justify-center pt-5 pb-6">
-                    <Upload className="w-8 h-8 mb-3 text-gray-400" />
-                    <p className="mb-2 text-sm text-gray-500">
-                      <span className="font-semibold">Click to upload</span> or drag and drop
-                    </p>
-                    <p className="text-xs text-gray-500">
-                      Images, videos, PDFs (MAX. 10MB)
-                    </p>
-                  </div>
-                  <input 
-                    type="file" 
-                    className="hidden" 
-                    onChange={handleFileChange} 
-                    accept="image/*,video/*,application/pdf"
-                  />
-                </label>
-              </div>
-            ) : (
-              <div className="flex items-center justify-between p-3 bg-white border rounded-lg">
-                <div className="flex items-center overflow-hidden">
-                  {getFileIcon(uploadedFile)}
-                  <span className="truncate max-w-xs">{uploadedFile.name}</span>
-                  <span className="text-xs text-gray-500 ml-2">
-                    ({Math.round(uploadedFile.size / 1024)} KB)
-                  </span>
-                </div>
-                <div className="flex items-center">
-                  {uploadSuccess && (
-                    <CheckCircle className="w-5 h-5 text-green-500 mr-2" />
-                  )}
-                  <button
-                    type="button"
-                    onClick={handleRemoveUploadedFile}
-                    className="p-1 text-gray-500 rounded-full hover:bg-gray-100"
-                  >
-                    <X size={18} />
-                  </button>
-                </div>
-              </div>
-            )}
-          </div>
-          
-          {uploadedFile && !uploadSuccess && (
-            <div className="flex justify-end">
+        {/* Subject Buttons in Grid */}
+        <div className="mb-6">
+          <label className="block text-gray-700 font-medium mb-2">
+            Select A Subject for the Related Question then you have options to select topics under those subjects.
+          </label>
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+            {formData.category && subjectsByCategory[formData.category]?.map((subject) => (
               <button
                 type="button"
-                onClick={handleUploadMedia}
-                disabled={isUploading}
-                className={`px-4 py-2 rounded ${
-                  isUploading
-                    ? 'bg-gray-400 cursor-not-allowed'
-                    : 'bg-blue-600 hover:bg-blue-700 text-white'
-                } flex items-center`}
+                key={subject}
+                onClick={() => setFormData({ ...formData, subject, topic: '' })}
+                className={`py-2 px-3 rounded text-sm font-medium border transition ${
+                  formData.subject === subject
+                    ? 'bg-blue-500 text-white border-blue-500'
+                    : 'bg-blue-50 text-blue-700 border-blue-200 hover:bg-blue-100'
+                }`}
               >
-                <Upload size={16} className="mr-2" />
-                {isUploading ? 'Uploading...' : 'Upload'}
+                {subject}
               </button>
-            </div>
-          )}
-          
-          {uploadError && (
-            <div className="mt-2 text-sm text-red-600">
-              {uploadError}
-            </div>
-          )}
-          
-          {uploadSuccess && (
-            <div className="mt-2 text-sm text-green-600 flex items-center">
-              <CheckCircle size={16} className="mr-1" />
-              File uploaded successfully!
-            </div>
-          )}
-        </div>
-        
-        {/* Question Text */}
-        <div className="mb-6">
-          <label className="block text-gray-700 font-medium mb-2" htmlFor="questionText">
-            Question Text*
-          </label>
-          <textarea
-            id="questionText"
-            name="questionText"
-            value={formData.questionText}
-            onChange={handleInputChange}
-            rows="3"
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-            placeholder="Enter the question text here..."
-            required
-          />
-        </div>
-        
-        {/* Options and Correct Answer */}
-        <div className="mb-6">
-          <div className="flex justify-between items-center mb-2">
-            <label className="block text-gray-700 font-medium">
-              Options* (Select the correct answer)
-            </label>
-            <button
-              type="button"
-              onClick={handleAddOption}
-              className="flex items-center text-blue-600 hover:text-blue-800"
-            >
-              <Plus size={16} className="mr-1" /> Add Option
-            </button>
+            ))}
           </div>
-          <div className="space-y-3">
-            {formData.options.map((option, index) => (
-              <div key={index} className="flex items-center">
-                <div
-                  onClick={() => handleCorrectAnswerSelect(index)}
-                  className={`flex-shrink-0 w-6 h-6 rounded-full mr-3 flex items-center justify-center cursor-pointer ${
-                    formData.correctAnswer === index
-                      ? 'bg-green-500 text-white'
-                      : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
-                  }`}
-                >
-                  {String.fromCharCode(65 + index)} {/* A, B, C, etc. */}
-                </div>
-                <input
-                  type="text"
-                  value={option}
-                  onChange={(e) => handleOptionChange(index, e.target.value)}
-                  className="flex-grow px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  placeholder={`Option ${String.fromCharCode(65 + index)}`}
-                  required
-                />
+        </div>
+
+        {/* Topics Row (Visible only if subject selected) */}
+        {formData.subject && (
+          <div className="mb-6">
+            <label className="block text-gray-700 font-medium mb-2">Select Topic for the Related Question</label>
+            <div className="flex flex-wrap gap-2">
+              {topicsBySubject[formData.subject]?.map((topic) => (
                 <button
                   type="button"
-                  onClick={() => handleRemoveOption(index)}
-                  className="ml-2 p-1 text-gray-500 hover:text-red-500"
-                  title="Remove option"
+                  key={topic}
+                  onClick={() => setFormData({ ...formData, topic })}
+                  className={`py-2 px-4 rounded text-sm font-medium border transition ${
+                    formData.topic === topic
+                      ? 'bg-green-500 text-white border-green-500'
+                      : 'bg-green-50 text-green-700 border-green-200 hover:bg-green-100'
+                  }`}
                 >
-                  <Trash2 size={18} />
+                  {topic}
                 </button>
-              </div>
-            ))}
+              ))}
+            </div>
           </div>
-        </div>
-        
-        {/* Explanation */}
-        <div className="mb-6">
-          <label className="block text-gray-700 font-medium mb-2" htmlFor="explanation">
-            Explanation
-          </label>
-          <textarea
-            id="explanation"
-            name="explanation"
-            value={formData.explanation}
-            onChange={handleInputChange}
-            rows="3"
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-            placeholder="Explain the correct answer..."
-          />
-        </div>
-        
-        {/* Difficulty */}
-        <div className="mb-6">
-          <label className="block text-gray-700 font-medium mb-2">Difficulty*</label>
-          <div className="flex space-x-4">
-            {['easy', 'medium', 'hard'].map((level) => (
-              <label key={level} className="flex items-center cursor-pointer">
-                <input
-                  type="radio"
-                  name="difficulty"
-                  value={level}
-                  checked={formData.difficulty === level}
-                  onChange={handleInputChange}
-                  className="mr-2 h-4 w-4"
-                />
-                <span className="capitalize">{level}</span>
-              </label>
-            ))}
-          </div>
-        </div>
-        
-        {/* Tags */}
-        <div className="mb-6">
-          <label className="block text-gray-700 font-medium mb-2">Tags (Optional)</label>
-          <div className="flex flex-wrap items-center gap-2 mb-2">
-            {formData.tags.map((tag, index) => (
-              <span
-                key={index}
-                className="bg-blue-100 text-blue-800 text-sm px-2 py-1 rounded-full flex items-center"
-              >
-                {tag}
-                <button 
-                  type="button"
-                  onClick={() => handleRemoveTag(tag)}
-                  className="ml-1 text-blue-600 hover:text-blue-800"
-                >
-                  <X size={14} />
-                </button>
-              </span>
-            ))}
-          </div>
-          <div className="flex">
-            <input
-              type="text"
-              value={currentTag}
-              onChange={(e) => setCurrentTag(e.target.value)}
-              onKeyPress={handleKeyPress}
-              className="flex-grow px-3 py-2 border border-gray-300 rounded-l-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-              placeholder="Add a tag"
-            />
-            <button
-              type="button"
-              onClick={handleAddTag}
-              className="bg-blue-600 text-white px-4 rounded-r-md hover:bg-blue-700 flex items-center"
-            >
-              <PlusCircle size={16} className="mr-1" /> Add
-            </button>
-          </div>
-        </div>
-        
-        {/* Source URL */}
-        <div className="mb-6">
-          <label className="block text-gray-700 font-medium mb-2" htmlFor="sourceUrl">
-            Source URL (Optional)
-          </label>
-          <input
-            type="url"
-            id="sourceUrl"
-            name="sourceUrl"
-            value={formData.sourceUrl}
-            onChange={handleInputChange}
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-            placeholder="https://..."
-          />
-        </div>
+        )}
         
         {/* Submit Button */}
         <div className="flex justify-end">

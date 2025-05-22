@@ -4,10 +4,14 @@ import { useParams, useNavigate } from 'react-router-dom';
 const TestDetailPage = () => {
   const { testId } = useParams();
   const [testDetail, setTestDetail] = useState(null);
+  const [questions, setQuestions] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [analytics, setAnalytics] = useState({});
+  const [filter, setFilter] = useState('all'); // Filter state for questions
+  const [pagination, setPagination] = useState({ current: 1, pages: 1, limit: 20 });
   const navigate = useNavigate();
-  
+
   useEffect(() => {
     const fetchTestDetail = async () => {
       try {
@@ -15,24 +19,123 @@ const TestDetailPage = () => {
         if (!token) {
           throw new Error('Authentication token not found');
         }
-        
-        const response = await fetch(`https://synapaxon-backend.onrender.com/api/tests/${testId}`, {
+
+        // Fetch test session details from /api/tests/history
+        const sessionResponse = await fetch(`https://synapaxon-backend.onrender.com/api/tests/history?page=1`, {
           headers: {
             'Authorization': `Bearer ${token}`,
             'Content-Type': 'application/json'
           }
         });
-        
-        if (!response.ok) {
-          throw new Error('Failed to fetch test details');
+
+        if (!sessionResponse.ok) {
+          throw new Error('Failed to fetch test session details');
         }
-        
+
+        const sessionData = await sessionResponse.json();
+        const testSession = sessionData.data.find(test => test._id === testId);
+        if (!testSession) {
+          throw new Error('Test session not found');
+        }
+
+        // Fetch questions using the new endpoint with filter and pagination
+        let query = `page=${pagination.current}&limit=${pagination.limit}`;
+        if (filter !== 'all') {
+          query += `&filter=${filter}`;
+        }
+
+        const response = await fetch(`https://synapaxon-backend.onrender.com/api/student-questions/history/${testId}?${query}`, {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          }
+        });
+
+        if (!response.ok) {
+          throw new Error('Failed to fetch test questions');
+        }
+
         const responseData = await response.json();
-        
+
         if (responseData.success) {
-          setTestDetail(responseData.data);
+          // Combine test session data with questions
+          const testDetailData = {
+            _id: testSession._id,
+            startedAt: testSession.startedAt,
+            completedAt: testSession.completedAt,
+            completed: testSession.completed,
+            score: testSession.score,
+            totalQuestions: testSession.totalQuestions,
+            scorePercentage: testSession.scorePercentage,
+            filters: {
+              difficulty: testSession.filters.difficulty,
+              count: testSession.filters.count
+            }
+          };
+
+          setTestDetail(testDetailData);
+          setQuestions(responseData.data || []);
+          setPagination({
+            current: responseData.pagination?.current || 1,
+            pages: responseData.pagination?.pages || 1,
+            limit: responseData.pagination?.limit || 20
+          });
+
+          // Fetch all questions (without filter) to calculate analytics
+          const allQuestionsResponse = await fetch(`https://synapaxon-backend.onrender.com/api/student-questions/history/${testId}`, {
+            headers: {
+              'Authorization': `Bearer ${token}`,
+              'Content-Type': 'application/json'
+            }
+          });
+
+          const allQuestionsData = await allQuestionsResponse.json();
+          if (allQuestionsData.success && allQuestionsData.data.length > 0) {
+            // Calculate analytics: Performance by category, subject, and question stats
+            const categoryStats = allQuestionsData.data.reduce((acc, q) => {
+              if (!acc[q.category]) {
+                acc[q.category] = { correct: 0, total: 0 };
+              }
+              acc[q.category].total += 1;
+              if (q.isCorrect) acc[q.category].correct += 1;
+              return acc;
+            }, {});
+
+            const subjectStats = allQuestionsData.data.reduce((acc, q) => {
+              if (!acc[q.subject]) {
+                acc[q.subject] = { correct: 0, total: 0 };
+              }
+              acc[q.subject].total += 1;
+              if (q.isCorrect) acc[q.subject].correct += 1;
+              return acc;
+            }, {});
+
+            const questionStats = {
+              correct: allQuestionsData.data.filter(q => q.isCorrect).length,
+              incorrect: allQuestionsData.data.filter(q => !q.isCorrect && q.selectedAnswer !== -1).length,
+              flagged: allQuestionsData.data.filter(q => q.selectedAnswer === -1).length,
+              avgTimePerQuestion: testSession.completedAt
+                ? (() => {
+                    const start = new Date(testSession.startedAt);
+                    const end = new Date(testSession.completedAt);
+                    const totalSeconds = (end - start) / 1000;
+                    return testSession.totalQuestions > 0
+                      ? Math.round(totalSeconds / testSession.totalQuestions)
+                      : 0;
+                  })()
+                : 'N/A'
+            };
+
+            setAnalytics({ categoryStats, subjectStats, questionStats });
+          } else {
+            setAnalytics({
+              categoryStats: {},
+              subjectStats: {},
+              questionStats: { correct: 0, incorrect: 0, flagged: 0, avgTimePerQuestion: 'N/A' }
+            });
+          }
         } else {
-          throw new Error(responseData.message || 'Failed to fetch test details');
+          throw new Error(responseData.message || 'Failed to fetch test questions');
         }
       } catch (err) {
         console.error('Error fetching test details:', err);
@@ -41,12 +144,23 @@ const TestDetailPage = () => {
         setLoading(false);
       }
     };
-    
+
     if (testId) {
       fetchTestDetail();
     }
-  }, [testId]);
-  
+  }, [testId, filter, pagination.current]);
+
+  // Handle filter change
+  const handleFilterChange = (newFilter) => {
+    setFilter(newFilter);
+    setPagination(prev => ({ ...prev, current: 1 })); // Reset to first page on filter change
+  };
+
+  // Handle page change
+  const handlePageChange = (page) => {
+    setPagination(prev => ({ ...prev, current: page }));
+  };
+
   // Format date
   const formatDate = (dateString) => {
     if (!dateString) return 'N/A';
@@ -60,7 +174,7 @@ const TestDetailPage = () => {
       hour12: true
     }).format(date);
   };
-  
+
   // Format duration
   const formatDuration = (startDate, endDate) => {
     if (!endDate) return 'In Progress';
@@ -74,7 +188,7 @@ const TestDetailPage = () => {
     
     return `${minutes}m ${seconds}s`;
   };
-  
+
   if (loading) {
     return (
       <div className="flex justify-center items-center h-64">
@@ -82,7 +196,7 @@ const TestDetailPage = () => {
       </div>
     );
   }
-  
+
   if (error) {
     return (
       <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative" role="alert">
@@ -91,7 +205,7 @@ const TestDetailPage = () => {
       </div>
     );
   }
-  
+
   if (!testDetail) {
     return (
       <div className="bg-yellow-100 border border-yellow-400 text-yellow-700 px-4 py-3 rounded relative" role="alert">
@@ -100,7 +214,7 @@ const TestDetailPage = () => {
       </div>
     );
   }
-  
+
   return (
     <div className="container mx-auto px-4 py-8 max-w-5xl">
       <div className="mb-4">
@@ -114,12 +228,12 @@ const TestDetailPage = () => {
           Back to Test History
         </button>
       </div>
-      
+
       <div className="bg-white rounded-lg shadow-lg overflow-hidden">
         <div className="p-6 bg-blue-600 text-white">
           <h1 className="text-2xl font-bold">Test Details</h1>
         </div>
-        
+
         <div className="p-6">
           {/* Test Summary Section */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
@@ -146,7 +260,7 @@ const TestDetailPage = () => {
                 </div>
               </div>
             </div>
-            
+
             <div className="bg-gray-50 p-4 rounded-lg">
               <h2 className="text-lg font-semibold mb-4">Performance</h2>
               <div className="space-y-2">
@@ -191,144 +305,178 @@ const TestDetailPage = () => {
               </div>
             </div>
           </div>
-          
+
           {/* Test Filter Section */}
           <div className="bg-gray-50 p-4 rounded-lg mb-8">
             <h2 className="text-lg font-semibold mb-4">Test Filters</h2>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div>
-                <span className="text-gray-600 block">Tags:</span>
-                <div className="mt-1 flex flex-wrap gap-1">
-                  {testDetail.filters && testDetail.filters.tags ? 
-                    testDetail.filters.tags.map((tag, index) => (
-                      <span key={index} className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-                        {tag}
-                      </span>
-                    )) : 
-                    <span className="text-gray-500">None</span>
-                  }
-                </div>
-              </div>
-              <div>
                 <span className="text-gray-600 block">Difficulty:</span>
                 <span className="font-medium capitalize">
-                  {testDetail.filters && testDetail.filters.difficulty ? testDetail.filters.difficulty : 'N/A'}
+                  {testDetail.filters.difficulty}
                 </span>
               </div>
               <div>
                 <span className="text-gray-600 block">Question Count:</span>
                 <span className="font-medium">
-                  {testDetail.filters && testDetail.filters.count ? testDetail.filters.count : 'N/A'}
+                  {testDetail.filters.count}
                 </span>
               </div>
             </div>
           </div>
-          
+
+          {/* Analytics Section */}
+          <div className="bg-gray-50 p-4 rounded-lg mb-8">
+            <h2 className="text-lg font-semibold mb-4">Performance Breakdown</h2>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <h3 className="text-sm font-medium mb-2">By Category</h3>
+                {Object.entries(analytics.categoryStats || {}).map(([category, stats]) => (
+                  <div key={category} className="flex justify-between text-sm mb-1">
+                    <span>{category}:</span>
+                    <span>{stats.correct}/{stats.total} ({Math.round((stats.correct / stats.total) * 100)}%)</span>
+                  </div>
+                ))}
+              </div>
+              <div>
+                <h3 className="text-sm font-medium mb-2">By Subject</h3>
+                {Object.entries(analytics.subjectStats || {}).map(([subject, stats]) => (
+                  <div key={subject} className="flex justify-between text-sm mb-1">
+                    <span>{subject}:</span>
+                    <span>{stats.correct}/{stats.total} ({Math.round((stats.correct / stats.total) * 100)}%)</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+            <div className="mt-4">
+              <h3 className="text-sm font-medium mb-2">Question Statistics</h3>
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                <div>
+                  <span className="text-gray-600 block">Correct:</span>
+                  <span className="font-medium">{analytics.questionStats?.correct || 0}</span>
+                </div>
+                <div>
+                  <span className="text-gray-600 block">Incorrect:</span>
+                  <span className="font-medium">{analytics.questionStats?.incorrect || 0}</span>
+                </div>
+                <div>
+                  <span className="text-gray-600 block">Flagged/Skipped:</span>
+                  <span className="font-medium">{analytics.questionStats?.flagged || 0}</span>
+                </div>
+                <div>
+                  <span className="text-gray-600 block">Avg Time per Question:</span>
+                  <span className="font-medium">
+                    {analytics.questionStats?.avgTimePerQuestion === 'N/A'
+                      ? 'N/A'
+                      : `${analytics.questionStats.avgTimePerQuestion}s`}
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
+
           {/* Questions and Answers Section */}
           <div>
-            <h2 className="text-xl font-semibold mb-6">Questions & Answers</h2>
-            
-            {testDetail.questions && testDetail.questions.map((question, qIndex) => {
-              // Find the corresponding answer for this question
-              const answer = testDetail.answers ? 
-                testDetail.answers.find(a => a.question === question._id) : null;
-              
-              return (
-                <div key={question._id} className="mb-8 bg-gray-50 p-4 rounded-lg">
-                  <div className="mb-4">
-                    <h3 className="text-lg font-medium">
-                      Q{qIndex + 1}: {question.questionText}
-                    </h3>
-                    
-                    {question.media && question.media.type === 'url' && (
-                      <div className="mt-2">
-                        <a 
-                          href={question.media.url} 
-                          target="_blank" 
-                          rel="noopener noreferrer"
-                          className="text-blue-600 hover:underline flex items-center"
+            <div className="flex justify-between items-center mb-6">
+              <h2 className="text-xl font-semibold">Questions & Answers</h2>
+              <div>
+                <label htmlFor="filter" className="mr-2 text-sm font-medium">Filter:</label>
+                <select
+                  id="filter"
+                  value={filter}
+                  onChange={(e) => handleFilterChange(e.target.value)}
+                  className="border rounded-md p-1 text-sm"
+                >
+                  <option value="all">All</option>
+                  <option value="correct">Correct</option>
+                  <option value="incorrect">Incorrect</option>
+                  <option value="flagged">Flagged/Skipped</option>
+                </select>
+              </div>
+            </div>
+
+            {questions.length > 0 ? (
+              <>
+                {questions.map((question, qIndex) => (
+                  <div key={question._id} className="mb-8 bg-gray-50 p-4 rounded-lg">
+                    <div className="mb-4">
+                      <h3 className="text-lg font-medium">
+                        Q{qIndex + 1}: {question.question.questionText}
+                      </h3>
+                    </div>
+
+                    <div className="space-y-2 mb-4">
+                      {question.question.options.map((option, oIndex) => (
+                        <div 
+                          key={oIndex} 
+                          className={`p-3 rounded-lg ${
+                            question.selectedAnswer === oIndex && question.isCorrect ? 'bg-green-100 border border-green-300' :
+                            question.selectedAnswer === oIndex && !question.isCorrect ? 'bg-red-100 border border-red-300' :
+                            'bg-white border border-gray-200'
+                          }`}
                         >
-                          <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
-                          </svg>
-                          View Media
-                        </a>
-                      </div>
-                    )}
-                  </div>
-                  
-                  <div className="space-y-2 mb-4">
-                    {question.options.map((option, oIndex) => (
-                      <div 
-                        key={oIndex} 
-                        className={`p-3 rounded-lg ${
-                          answer && answer.selectedAnswer === oIndex && answer.isCorrect ? 'bg-green-100 border border-green-300' :
-                          answer && answer.selectedAnswer === oIndex && !answer.isCorrect ? 'bg-red-100 border border-red-300' :
-                          oIndex === question.correctAnswer ? 'bg-green-50 border border-green-200' : 
-                          'bg-white border border-gray-200'
-                        }`}
-                      >
-                        <div className="flex">
-                          <div className="flex-shrink-0">
-                            {answer && answer.selectedAnswer === oIndex ? (
-                              <svg xmlns="http://www.w3.org/2000/svg" className={`h-5 w-5 ${answer.isCorrect ? 'text-green-500' : 'text-red-500'}`} viewBox="0 0 20 20" fill="currentColor">
-                                {answer.isCorrect ? (
-                                  <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-                                ) : (
-                                  <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
-                                )}
-                              </svg>
-                            ) : oIndex === question.correctAnswer ? (
-                              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-green-500" viewBox="0 0 20 20" fill="currentColor">
-                                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-                              </svg>
-                            ) : (
-                              <div className="h-5 w-5"></div>
-                            )}
-                          </div>
-                          <div className="ml-3">
-                            <p className="text-sm font-medium text-gray-900">
-                              {String.fromCharCode(65 + oIndex)}. {option}
-                            </p>
+                          <div className="flex">
+                            <div className="flex-shrink-0">
+                              {question.selectedAnswer === oIndex ? (
+                                <svg xmlns="http://www.w3.org/2000/svg" className={`h-5 w-5 ${question.isCorrect ? 'text-green-500' : 'text-red-500'}`} viewBox="0 0 20 20" fill="currentColor">
+                                  {question.isCorrect ? (
+                                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                                  ) : (
+                                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+                                  )}
+                                </svg>
+                              ) : (
+                                <div className="h-5 w-5"></div>
+                              )}
+                            </div>
+                            <div className="ml-3">
+                              <p className="text-sm font-medium text-gray-900">
+                                {String.fromCharCode(65 + oIndex)}. {option.text}
+                              </p>
+                            </div>
                           </div>
                         </div>
-                      </div>
-                    ))}
-                  </div>
-                  
-                  <div className="bg-blue-50 p-4 rounded-lg">
-                    <h4 className="text-sm font-medium text-blue-800 mb-2">Explanation:</h4>
-                    <p className="text-sm text-gray-700">{question.explanation}</p>
-                  </div>
-                  
-                  {question.sourceUrl && (
-                    <div className="mt-3">
-                      <a 
-                        href={question.sourceUrl} 
-                        target="_blank" 
-                        rel="noopener noreferrer"
-                        className="text-blue-600 hover:underline text-sm flex items-center"
-                      >
-                        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-                        </svg>
-                        Source
-                      </a>
+                      ))}
                     </div>
-                  )}
-                  
-                  <div className="mt-3 text-xs text-gray-500">
-                    <span>Category: {question.category}</span>
-                    <span className="mx-2">•</span>
-                    <span>Subject: {question.subject}</span>
-                    <span className="mx-2">•</span>
-                    <span>Topic: {question.topic}</span>
+
+                    <div className="mt-3 text-xs text-gray-500">
+                      <span>Category: {question.category}</span>
+                      <span className="mx-2">•</span>
+                      <span>Subject: {question.subject}</span>
+                      <span className="mx-2">•</span>
+                      <span>Topic: {question.topic}</span>
+                    </div>
                   </div>
-                </div>
-              );
-            })}
+                ))}
+
+                {/* Pagination */}
+                {pagination.pages > 1 && (
+                  <div className="flex justify-center mt-6">
+                    <nav className="inline-flex rounded-md shadow">
+                      {Array.from({ length: pagination.pages }, (_, i) => i + 1).map((page) => (
+                        <button
+                          key={page}
+                          onClick={() => handlePageChange(page)}
+                          className={`px-4 py-2 border ${
+                            pagination.current === page
+                              ? 'bg-blue-500 text-white border-blue-500'
+                              : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'
+                          }`}
+                        >
+                          {page}
+                        </button>
+                      ))}
+                    </nav>
+                  </div>
+                )}
+              </>
+            ) : (
+              <div className="text-center text-gray-500 py-4">
+                No questions found for this filter.
+              </div>
+            )}
           </div>
-          
+
           <div className="mt-8 text-right">
             <button 
               onClick={() => navigate('/dashboard')}
@@ -336,9 +484,9 @@ const TestDetailPage = () => {
             >
               Back to History
             </button>
-            
+
             <button 
-              onClick={() => navigate('/dashboard')}
+              onClick={() => navigate('/dashboard/test')}
               className="px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded-md text-white font-medium"
             >
               Start a New Test
