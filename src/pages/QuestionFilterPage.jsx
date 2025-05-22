@@ -17,33 +17,45 @@ export default function QuestionFilterPage() {
   const [numberOfItems, setNumberOfItems] = useState(5);
   const [isLoading, setIsLoading] = useState(false);
   const [questions, setQuestions] = useState([]);
+  const [activeSubject, setActiveSubject] = useState(null);
+  const [selectedFilters, setSelectedFilters] = useState({});
 
   const token = localStorage.getItem("token");
 
-  // Fetch all questions based on current filters (category, subject, difficulty)
   const fetchQuestions = async () => {
     try {
-      // Determine which subjects to fetch - if none selected, fetch all in the category
-      const subjectsToFetch = selectedSubjects.length > 0 
-        ? selectedSubjects.join(",") 
-        : subjectsByCategory[selectedCategory]?.join(",") || "";
-        
-      const res = await axios.get(
-        `https://synapaxon-backend.onrender.com/api/questions?category=${selectedCategory}&subject=${subjectsToFetch}&difficulty=${difficulty}`,
-        {
-          headers: { Authorization: `Bearer ${token}` },
-        }
+      let allQuestions = [];
+
+      // Fetch questions for each selected subject one by one
+      for (const subject of selectedSubjects) {
+        const res = await axios.get(
+          `https://synapaxon-backend.onrender.com/api/questions?category=${selectedCategory}&subject=${subject}&difficulty=${difficulty}`,
+          {
+            headers: { Authorization: `Bearer ${token}` },
+          }
+        );
+
+        const subjectQuestions = res.data.data || [];
+
+        // Get the selected topics for this subject from selectedFilters
+        const subjectTopics = selectedFilters[subject] || [];
+
+        // Filter questions based on topics for this subject
+        const filteredQuestions = subjectTopics.length > 0
+          ? subjectQuestions.filter(q => subjectTopics.includes(q.topic))
+          : subjectQuestions;
+
+        // Add the filtered questions to the overall list
+        allQuestions = [...allQuestions, ...filteredQuestions];
+      }
+
+      // Remove duplicates by question ID (in case of overlapping subjects/topics)
+      const uniqueQuestions = Array.from(
+        new Map(allQuestions.map(q => [q._id, q])).values()
       );
-      
-      const allQuestions = res.data.data || [];
-      
-      // Apply topic filter if topics are selected
-      const filteredByTopic = selectedTopics.length > 0
-        ? allQuestions.filter(q => selectedTopics.includes(q.topic))
-        : allQuestions;
-        
-      setQuestions(filteredByTopic);
-      return filteredByTopic;
+
+      setQuestions(uniqueQuestions);
+      return uniqueQuestions;
     } catch (err) {
       console.error("Error fetching questions:", err);
       return [];
@@ -67,7 +79,6 @@ export default function QuestionFilterPage() {
           const subjectQuestions = res.data.data || [];
           subjectCountMap[subject] = subjectQuestions.length;
 
-          // Topic counts under this subject
           const topics = topicsBySubject[subject] || [];
           for (const topic of topics) {
             const topicQuestions = subjectQuestions.filter((q) => q.topic === topic);
@@ -83,7 +94,6 @@ export default function QuestionFilterPage() {
     setTopicCounts(topicCountMap);
   };
 
-  // Fetch data when component mounts or filters change
   useEffect(() => {
     fetchCounts();
     fetchQuestions();
@@ -95,25 +105,43 @@ export default function QuestionFilterPage() {
         ? prev.filter((s) => s !== subject)
         : [...prev, subject];
       
-      // When a subject is deselected, remove its topics from selectedTopics
       if (prev.includes(subject) && !newSelection.includes(subject)) {
         const subjectTopics = topicsBySubject[subject] || [];
         setSelectedTopics(current => 
           current.filter(topic => !subjectTopics.includes(topic))
         );
+        setSelectedFilters(current => {
+          const newFilters = { ...current };
+          delete newFilters[subject];
+          return newFilters;
+        });
+      } else if (!prev.includes(subject)) {
+        setSelectedFilters(current => ({
+          ...current,
+          [subject]: current[subject] || []
+        }));
       }
       
+      setActiveSubject(newSelection.includes(subject) ? subject : newSelection[0] || null);
       return newSelection;
     });
   };
 
-  const toggleTopic = (topic) => {
-    setSelectedTopics((prev) =>
-      prev.includes(topic) ? prev.filter((t) => t !== topic) : [...prev, topic]
-    );
+  const toggleTopic = (topic, subject) => {
+    setSelectedTopics((prev) => {
+      const newTopics = prev.includes(topic)
+        ? prev.filter((t) => t !== topic)
+        : [...prev, topic];
+      
+      setSelectedFilters(current => ({
+        ...current,
+        [subject]: newTopics.filter(t => (topicsBySubject[subject] || []).includes(t))
+      }));
+      
+      return newTopics;
+    });
   };
 
-  // Update questions when subjects or topics change
   useEffect(() => {
     fetchQuestions();
   }, [selectedSubjects, selectedTopics]);
@@ -127,7 +155,6 @@ export default function QuestionFilterPage() {
     setIsLoading(true);
 
     try {
-      // Get filtered questions based on current selection
       const filteredQuestions = await fetchQuestions();
       
       if (filteredQuestions.length === 0) {
@@ -136,13 +163,9 @@ export default function QuestionFilterPage() {
         return;
       }
 
-      // Shuffle the questions to get random selection
       const shuffledQuestions = filteredQuestions.sort(() => Math.random() - 0.5);
-      
-      // Select only the requested number of questions
       const selectedQuestions = shuffledQuestions.slice(0, Math.min(numberOfItems, filteredQuestions.length));
-  
-      // Format questions for the test session
+
       const formattedQuestions = selectedQuestions.map(q => ({
         questionId: q._id,
         questionText: q.questionText,
@@ -151,21 +174,22 @@ export default function QuestionFilterPage() {
         subject: q.subject,
         topic: q.topic,
         difficulty: q.difficulty,
-        correctAnswer: q.correctAnswer // Make sure to include this if needed
+        correctAnswer: q.correctAnswer
       }));
 
-      // Create the payload with the pre-filtered questions
+      const allSelectedTopics = Object.values(selectedFilters).flat();
+
       const payload = {
         category: selectedCategory,
-        subjects: selectedSubjects,  
-        topics: selectedTopics.length > 0 ? selectedTopics : [], // Send empty array if no topics selected
+        subjects: selectedSubjects,
+        topics: allSelectedTopics.length > 0 ? allSelectedTopics : [],
         difficulty,
-        count: selectedQuestions.length, // Use actual count of selected questions
+        count: selectedQuestions.length,
         duration: useTimer ? parseInt(testDuration) : 0,
-        questions: formattedQuestions // Send the pre-filtered questions
+        questions: formattedQuestions
       };
 
-      console.log("Starting test with payload:", payload); // Debug log
+      console.log("Starting test with payload:", payload);
 
       const res = await axios.post(
         "https://synapaxon-backend.onrender.com/api/tests/start",
@@ -180,8 +204,6 @@ export default function QuestionFilterPage() {
 
       if (res.data.success) {
         const { testSessionId, questions: returnedQuestions } = res.data.data;
-        
-        // Use the questions we sent if the backend doesn't return the filtered ones
         const questionsToUse = returnedQuestions && returnedQuestions.length > 0 
           ? returnedQuestions 
           : formattedQuestions;
@@ -198,7 +220,7 @@ export default function QuestionFilterPage() {
             selectedFilters: {
               category: selectedCategory,
               subjects: selectedSubjects,
-              topics: selectedTopics,
+              topics: allSelectedTopics,
               difficulty: difficulty
             }
           },
@@ -218,7 +240,6 @@ export default function QuestionFilterPage() {
   return (
     <div className="flex flex-col min-h-screen bg-gray-50">
       <div className="flex items-center p-4">
-        {/* Difficulty Dropdown on Left */}
         <div className="flex-1">
           <select
             value={difficulty}
@@ -233,7 +254,6 @@ export default function QuestionFilterPage() {
       </div>
 
       <div className="p-8">
-        {/* Category Tabs */}
         <div className="mb-6">
           <label className="block text-gray-700 font-medium mb-2"></label>
           <div className="flex gap-2">
@@ -243,8 +263,10 @@ export default function QuestionFilterPage() {
                 type="button"
                 onClick={() => {
                   setSelectedCategory(cat.name);
-                  setSelectedSubjects([]); // reset selections on change
+                  setSelectedSubjects([]);
                   setSelectedTopics([]);
+                  setSelectedFilters({});
+                  setActiveSubject(null);
                 }}
                 className={`flex-1 py-3 text-center font-medium transition-colors rounded ${
                   selectedCategory === cat.name
@@ -258,7 +280,6 @@ export default function QuestionFilterPage() {
           </div>
         </div>
 
-        {/* Subjects */}
         {selectedCategory && (
           <div className="bg-blue-50 rounded-lg p-6 mb-8">
             <h2 className="text-xl font-bold text-blue-600 mb-4">Select Subjects</h2>
@@ -295,17 +316,16 @@ export default function QuestionFilterPage() {
           </div>
         )}
 
-        {/* Topics - Only show for selected subjects */}
         {selectedSubjects.length > 0 && (
           <div className="bg-blue-50 rounded-lg p-6 mb-8">
             <h2 className="text-xl font-bold text-blue-600 mb-4">Select Topics (Optional)</h2>
             <p className="text-sm text-gray-600 mb-4">Leave topics unselected to include all topics from selected subjects</p>
-            {selectedSubjects.map(subject => (
-              <div key={subject} className="mb-4">
-                <h3 className="text-md font-semibold text-gray-700 mb-3">{subject}</h3>
-                <div className="flex flex-wrap gap-4 ml-4">
-                  {(topicsBySubject[subject] || []).map((topic) => {
-                    const key = `${subject}||${topic}`;
+            {activeSubject && (
+              <div className="ml-4">
+                <h3 className="text-md font-semibold text-gray-700 mb-3">{activeSubject}</h3>
+                <div className="flex flex-wrap gap-4">
+                  {(topicsBySubject[activeSubject] || []).map((topic) => {
+                    const key = `${activeSubject}||${topic}`;
                     const count = topicCounts[key] || 0;
                     const isSelected = selectedTopics.includes(topic);
 
@@ -324,7 +344,7 @@ export default function QuestionFilterPage() {
                           type="checkbox"
                           checked={isSelected}
                           disabled={count === 0}
-                          onChange={() => toggleTopic(topic)}
+                          onChange={() => toggleTopic(topic, activeSubject)}
                           className="hidden"
                         />
                         <span>{topic}</span>
@@ -336,11 +356,23 @@ export default function QuestionFilterPage() {
                   })}
                 </div>
               </div>
-            ))}
+            )}
+            <div className="mt-6">
+              <h3 className="text-md font-semibold text-gray-700 mb-3">Selected Filters</h3>
+              <div className="flex flex-wrap gap-2">
+                {Object.entries(selectedFilters).map(([subject, topics]) => (
+                  <span
+                    key={subject}
+                    className="px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-sm"
+                  >
+                    {subject}{topics.length > 0 ? ` → ${topics.join(", ")}` : ""}
+                  </span>
+                ))}
+              </div>
+            </div>
           </div>
         )}
 
-        {/* Questions Preview */}
         {selectedSubjects.length > 0 && (
           <div className="bg-green-50 rounded-lg p-4 mb-8">
             <h3 className="text-lg font-semibold text-green-700 mb-2">Available Questions</h3>
@@ -355,7 +387,6 @@ export default function QuestionFilterPage() {
           </div>
         )}
 
-        {/* Test Configuration */}
         <div className="mb-8">
           <h2 className="text-xl font-bold text-gray-800 mb-6">Test Configuration</h2>
           <div className="flex flex-col md:flex-row justify-between gap-8">
@@ -394,7 +425,6 @@ export default function QuestionFilterPage() {
           </div>
         </div>
 
-        {/* Action Buttons */}
         <div className="flex justify-between mt-8">
           <button
             onClick={() => navigate("/dashboard")}
