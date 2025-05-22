@@ -486,7 +486,7 @@ const TestDetailPage = () => {
             </button>
 
             <button 
-              onClick={() => navigate('/dashboard/test')}
+              onClick={() => navigate('/dashboard')}
               className="px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded-md text-white font-medium"
             >
               Start a New Test
