@@ -27,7 +27,7 @@ const TestDetailPage = () => {
         }
 
         // Fetch test session details
-        const sessionResponse = await fetch(`http://localhost:8000/api/tests/${testId}`, {
+        const sessionResponse = await fetch(`https://synapaxon-backend.onrender.com/api/tests/${testId}`, {
           headers: {
             'Authorization': `Bearer ${token}`,
             'Content-Type': 'application/json',
@@ -49,7 +49,7 @@ const TestDetailPage = () => {
           query += `&filter=${filter}`;
         }
 
-        const questionsResponse = await fetch(`http://localhost:8000/api/student-questions/history/${testId}?${query}`, {
+        const questionsResponse = await fetch(`https://synapaxon-backend.onrender.com/api/student-questions/history/${testId}?${query}`, {
           headers: {
             'Authorization': `Bearer ${token}`,
             'Content-Type': 'application/json',
@@ -84,7 +84,7 @@ const TestDetailPage = () => {
         });
 
         // Fetch analytics data
-        const allQuestionsResponse = await fetch(`http://localhost:8000/api/student-questions/history/${testId}`, {
+        const allQuestionsResponse = await fetch(`https://synapaxon-backend.onrender.com/api/student-questions/history/${testId}`, {
           headers: {
             'Authorization': `Bearer ${token}`,
             'Content-Type': 'application/json',
@@ -141,7 +141,7 @@ const TestDetailPage = () => {
         // Fetch additional question details (explanations and media)
         const questionDetailsPromises = questionsData.data.map(async (question) => {
           try {
-            const response = await fetch(`http://localhost:8000/api/questions/${question.question?._id}`, {
+            const response = await fetch(`https://synapaxon-backend.onrender.com/api/questions/${question.question?._id}`, {
               headers: {
                 'Authorization': `Bearer ${token}`,
                 'Content-Type': 'application/json',
