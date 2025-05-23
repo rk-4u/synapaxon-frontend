@@ -16,6 +16,8 @@ export const subjectsByCategory = {
     "Microbiology",
     "Social Sciences",
     "Risk Factors & Prognosis",
+    "Immunology",
+    "Biostatistics"
   ],
   "Organ Systems": [
     "Behavioral Health",
