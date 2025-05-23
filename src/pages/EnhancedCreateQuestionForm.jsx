@@ -1,7 +1,7 @@
 // EnhancedCreateQuestionForm.jsx
 import React, { useState } from 'react';
 import { X, PlusCircle, Upload, Image, File, CheckCircle, Plus, Trash2, Paperclip } from 'lucide-react';
-import axios from 'axios';
+import axios from '../api/axiosConfig'
 import { subjectsByCategory, topicsBySubject } from '../data/questionData';
 
 const EnhancedCreateQuestionForm = ({ onQuestionCreated = () => {} }) => {
@@ -168,15 +168,9 @@ const EnhancedCreateQuestionForm = ({ onQuestionCreated = () => {} }) => {
       formDataObj.append('media', uploadedFile);
       
       const response = await axios.post(
-        'https://synapaxon-backend.onrender.com/api/uploads',
+        '/api/uploads',
         formDataObj,
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-            'Content-Type': 'multipart/form-data'
-          }
-        }
-      );
+        );
       
       if (response.data.success) {
         setUploadSuccess(true);
@@ -294,14 +288,8 @@ const EnhancedCreateQuestionForm = ({ onQuestionCreated = () => {} }) => {
       };
       
       const response = await axios.post(
-        'https://synapaxon-backend.onrender.com/api/questions',
-        submissionData,
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-            'Content-Type': 'application/json'
-          }
-        }
+        '/api/questions',
+        submissionData
       );
       
       if (response.data.success) {

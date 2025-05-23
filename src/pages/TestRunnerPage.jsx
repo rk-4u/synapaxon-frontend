@@ -1,23 +1,22 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import axios from 'axios';
+import axios from '../api/axiosConfig';
 import { Menu, Clock, Flag, Check, ChevronLeft, ChevronRight, X, PlayCircle, PauseCircle } from 'lucide-react';
 
 const TestRunnerPage = () => {
   const navigate = useNavigate();
   const location = useLocation();
-  
-  // Get test data from location state
-  const testData = location.state || {};
-  
+  const token = localStorage.getItem('token');
+
   // State variables
   const [questions, setQuestions] = useState([]);
   const [testSessionId, setTestSessionId] = useState(null);
+  const [selectedFilters, setSelectedFilters] = useState({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [userAnswers, setUserAnswers] = useState([]);
-  const [timeLeft, setTimeLeft] = useState(90); // Default to 90 seconds per question
+  const [timeLeft, setTimeLeft] = useState(90);
   const [testCompleted, setTestCompleted] = useState(false);
   const [testResults, setTestResults] = useState(null);
   const [timerPaused, setTimerPaused] = useState(false);
@@ -27,23 +26,21 @@ const TestRunnerPage = () => {
   const [showUnansweredModal, setShowUnansweredModal] = useState(false);
   const [questionStartTime, setQuestionStartTime] = useState(Date.now());
   const [submitting, setSubmitting] = useState(false);
-  
-  // Get auth token from localStorage
-  const token = localStorage.getItem('token');
 
-  // Check for token on component mount
+  // Retrieve test data from sessionStorage if location.state is unavailable
+  const testData = location.state || JSON.parse(sessionStorage.getItem('testData')) || {};
+
+  const usePerQuestionTimer = testData.testDuration && parseInt(testData.testDuration) === 90;
+
+  // Check for token
   useEffect(() => {
-    console.log("TestRunnerPage: Token on mount:", token);
     if (!token) {
-      alert("Authentication token is missing. Please log in again.");
-      navigate("/login");
+      alert('Authentication token is missing. Please log in again.');
+      navigate('/login');
     }
   }, [token, navigate]);
-  
-  // Determine if timer should be used per question
-  const usePerQuestionTimer = testData.testDuration && parseInt(testData.testDuration) === 90;
-  
-  // Initialize test from location state
+
+  // Initialize test
   useEffect(() => {
     const initializeTest = async () => {
       if (!token) {
@@ -53,38 +50,31 @@ const TestRunnerPage = () => {
 
       setLoading(true);
       try {
-        const { testSessionId, questions, testDuration } = testData;
-        
+        const { testSessionId, questions, selectedFilters } = testData;
         if (!testSessionId || !questions || questions.length === 0) {
-          throw new Error('Missing test data. Please start a new test.');
+          throw new Error('Missing test data. Please start a new test from the filter page.');
         }
 
-        // Validate questions array
         if (!questions.every(q => q._id)) {
           throw new Error('Invalid question data: Each question must have an _id.');
         }
 
-        // Set initial state with data from location state
+        // Log testSessionId for debugging
+        console.log("Initializing test with testSessionId:", testSessionId);
+
         setTestSessionId(testSessionId);
         setQuestions(questions);
-        
-        // Initialize user answers array with questionIds
-        const initialAnswers = questions.map(q => ({
-          questionId: q._id,
-          selectedAnswer: null
-        }));
-        setUserAnswers(initialAnswers);
-        
-        // Set question start time and reset timer
+        setSelectedFilters(selectedFilters || {});
+        setUserAnswers(questions.map(q => ({ questionId: q._id, selectedAnswer: null })));
         setQuestionStartTime(Date.now());
         if (usePerQuestionTimer) {
-          setTimeLeft(90); // 90 seconds per question
+          setTimeLeft(90);
         }
-        
+
         setLoading(false);
       } catch (err) {
         console.error('Error initializing test:', err);
-        setError('Failed to load test session. Please try again.');
+        setError('Failed to load test session. Please start a new test.');
         setLoading(false);
       }
     };
@@ -92,26 +82,25 @@ const TestRunnerPage = () => {
     initializeTest();
   }, [testData, token]);
 
-  // Timer effect - per question timer
+  // Timer effect
   useEffect(() => {
     if (!usePerQuestionTimer || timerPaused || !timeLeft || loading || error || testCompleted) return;
-    
+
     const timer = setInterval(() => {
-      setTimeLeft(prevTime => {
-        if (prevTime <= 1) {
+      setTimeLeft(prev => {
+        if (prev <= 1) {
           clearInterval(timer);
-          // Auto-submit with -1 when time runs out
           handleAutoSubmit();
           return 0;
         }
-        return prevTime - 1;
+        return prev - 1;
       });
     }, 1000);
-    
+
     return () => clearInterval(timer);
   }, [timeLeft, loading, error, testCompleted, timerPaused, currentQuestionIndex, usePerQuestionTimer]);
 
-  // Reset timer when moving to a new question
+  // Reset timer on question change
   useEffect(() => {
     if (usePerQuestionTimer && !testCompleted) {
       setTimeLeft(90);
@@ -120,84 +109,59 @@ const TestRunnerPage = () => {
     }
   }, [currentQuestionIndex, usePerQuestionTimer]);
 
-  // Auto-submit when timer runs out
+  // Auto-submit on timer expiry
   const handleAutoSubmit = async () => {
     const currentQuestion = questions[currentQuestionIndex];
-    const questionId = currentQuestion._id;
-    
-    // Set selectedAnswer to -1
-    setUserAnswers(prev => {
-      const updated = [...prev];
-      const questionIndex = updated.findIndex(a => a.questionId === questionId);
-      if (questionIndex !== -1) {
-        updated[questionIndex].selectedAnswer = -1;
-      }
-      return updated;
-    });
-
-    // Submit the question
     await handleSubmitQuestion(-1);
 
-    // Move to next question if available
     if (currentQuestionIndex < questions.length - 1) {
-      setCurrentQuestionIndex(prevIndex => prevIndex + 1);
+      setCurrentQuestionIndex(prev => prev + 1);
     } else {
-      // If last question, end the test
       handleEndTest();
     }
   };
 
-  // Format time as MM:SS
+  // Format time
   const formatTime = (seconds) => {
     const mins = Math.floor(seconds / 60);
     const secs = seconds % 60;
     return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
   };
-  
-  // Toggle timer pause state
+
+  // Toggle timer pause
   const toggleTimerPause = () => {
     setTimerPaused(prev => !prev);
   };
-  
+
   // Handle answer selection
   const handleAnswerSelect = (answerIndex) => {
     setUserAnswers(prev => {
       const updated = [...prev];
       const questionIndex = updated.findIndex(a => a.questionId === questions[currentQuestionIndex]._id);
-      
-      if (questionIndex !== -1) {
-        updated[questionIndex].selectedAnswer = answerIndex;
-      } else {
-        updated.push({
-          questionId: questions[currentQuestionIndex]._id,
-          selectedAnswer: answerIndex
-        });
-      }
-      
+      updated[questionIndex].selectedAnswer = answerIndex;
       return updated;
     });
   };
-  
-  // Navigate to next question
+
+  // Navigate questions
   const handleNextQuestion = () => {
     if (currentQuestionIndex < questions.length - 1) {
-      setCurrentQuestionIndex(prevIndex => prevIndex + 1);
+      setCurrentQuestionIndex(prev => prev + 1);
     }
   };
-  
-  // Navigate to previous question
+
   const handlePrevQuestion = () => {
     if (currentQuestionIndex > 0) {
-      setCurrentQuestionIndex(prevIndex => prevIndex - 1);
+      setCurrentQuestionIndex(prev => prev - 1);
     }
   };
-  
-  // Toggle sidebar visibility
+
+  // Toggle sidebar
   const toggleSidebar = () => {
     setShowSidebar(prev => !prev);
   };
-  
-  // Handle flag question
+
+  // Flag question
   const toggleFlagQuestion = (questionId) => {
     setFlaggedQuestions(prev => {
       if (prev.includes(questionId)) {
@@ -206,248 +170,250 @@ const TestRunnerPage = () => {
         return [...prev, questionId];
       }
     });
+
+    setUserAnswers(prev => {
+      const updated = [...prev];
+      const questionIndex = updated.findIndex(a => a.questionId === questionId);
+      if (questionIndex !== -1) {
+        updated[questionIndex].selectedAnswer = prev.includes(questionId) ? null : -1;
+      }
+      return updated;
+    });
   };
-  
-  // Calculate time taken for current question
+
+  // Calculate time taken
   const calculateTimeTaken = () => {
     return Math.floor((Date.now() - questionStartTime) / 1000);
   };
-  
-  // Submit individual question
+
+  // Submit question
   const handleSubmitQuestion = async (autoSelectedAnswer = null) => {
     const currentQuestion = questions[currentQuestionIndex];
     const questionId = currentQuestion._id;
-    
     if (!testSessionId || !questionId) {
-      alert('Error: Test session or question ID is missing. Please restart the test.');
+      alert('Error: Test session or question ID is missing.');
       return;
     }
-    
-    if (!token) {
-      alert('Error: Authentication token is missing. Please log in again.');
-      navigate('/login');
-      return;
-    }
-    
+
     const userAnswer = userAnswers.find(a => a.questionId === questionId);
     const selectedAnswer = autoSelectedAnswer !== null ? autoSelectedAnswer : (userAnswer?.selectedAnswer ?? -1);
     const timeTaken = calculateTimeTaken();
-    
+
     const payload = {
       testSessionId,
       questionId,
       selectedAnswer,
-      timeTaken
+      timeTaken,
     };
-    console.log('Submitting question with payload:', payload);
-    
+
     setSubmitting(true);
-    
     try {
-      const response = await axios.post(
-        'https://synapaxon-backend.onrender.com/api/student-questions/submit',
-        payload,
-        {
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json'
-          }
-        }
-      );
-      
-      console.log('Submission response:', response.data);
-      
-      setSubmittedQuestions(prev => {
-        if (!prev.includes(questionId)) {
-          return [...prev, questionId];
-        }
-        return prev;
+      const response = await axios.post('/api/student-questions/submit', payload, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
       });
-      
+
+      if (response.data.success) {
+        setSubmittedQuestions(prev => {
+          if (!prev.includes(questionId)) {
+            return [...prev, questionId];
+          }
+          return prev;
+        });
+      } else {
+        throw new Error(response.data.message || 'Submission failed.');
+      }
     } catch (err) {
       console.error('Error submitting question:', err);
-      const errorMessage = err.response?.data?.message || 'Failed to submit this question. Please try again.';
       if (err.response?.status === 401) {
-        alert("Session expired. Please log in again.");
-        navigate("/login");
+        alert('Session expired. Please log in again.');
+        navigate('/login');
       } else {
-        alert(`Submission failed: ${errorMessage}`);
+        alert(`Submission failed: ${err.response?.data?.message || err.message || 'Please try again.'}`);
       }
     } finally {
       setSubmitting(false);
     }
   };
-  
-  // Submit all unanswered questions with default value
+
+  // Submit unanswered questions
   const submitUnansweredQuestions = async () => {
-    if (!token) {
-      alert("Authentication token is missing. Please log in again.");
-      navigate("/login");
+    const unsubmittedQuestions = questions.filter(q => !submittedQuestions.includes(q._id));
+    if (unsubmittedQuestions.length === 0) {
+      await finalizeTest();
       return;
     }
 
-    const unsubmittedQuestions = questions.filter(q => !submittedQuestions.includes(q._id));
-    
+    setSubmitting(true);
     try {
-      await Promise.all(unsubmittedQuestions.map(async (question) => {
-        await axios.post(
-          'https://synapaxon-backend.onrender.com/api/student-questions/submit',
-          {
-            testSessionId,
-            questionId: question._id,
-            selectedAnswer: -1,
-            timeTaken: 0
+      const submissionPromises = unsubmittedQuestions.map(async (question) => {
+        const payload = {
+          testSessionId,
+          questionId: question._id,
+          selectedAnswer: -1,
+          timeTaken: 0,
+        };
+
+        const response = await axios.post('/api/student-questions/submit', payload, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            'Content-Type': 'application/json',
           },
-          {
-            headers: {
-              'Authorization': `Bearer ${token}`,
-              'Content-Type': 'application/json'
-            }
-          }
-        );
-      }));
-      
+        });
+
+        if (response.data.success) {
+          setSubmittedQuestions(prev => [...prev, question._id]);
+        } else {
+          throw new Error(`Failed to submit question ${question._id}: ${response.data.message}`);
+        }
+      });
+
+      await Promise.all(submissionPromises);
       await finalizeTest();
-      
     } catch (err) {
       console.error('Error submitting unanswered questions:', err);
       if (err.response?.status === 401) {
-        alert("Session expired. Please log in again.");
-        navigate("/login");
+        alert('Session expired. Please log in again.');
+        navigate('/login');
       } else {
-        setError('Failed to submit some answers. Please try again.');
+        setError(`Failed to submit some answers: ${err.message || 'Please try again.'}`);
       }
+    } finally {
+      setSubmitting(false);
     }
   };
-  
-  // Finalize test submission and fetch updated questions with explanations
-  const finalizeTest = async () => {
-    if (!token) {
-      alert("Authentication token is missing. Please log in again.");
-      navigate("/login");
-      return;
-    }
 
+  // Finalize test
+  const finalizeTest = async () => {
     try {
       setLoading(true);
-      
-      // Submit final test
-      await axios.post(
-        'https://synapaxon-backend.onrender.com/api/tests/submit',
-        { testSessionId },
+
+      // Log testSessionId for debugging
+      console.log("Finalizing test with testSessionId:", testSessionId);
+
+      // Validate test session
+      let testSession;
+      try {
+        const sessionResponse = await axios.get(`/api/tests/${testSessionId}`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        testSession = sessionResponse.data.data;
+      } catch (err) {
+        if (err.response?.status === 404) {
+          console.error(`Test session ${testSessionId} not found in database.`);
+          setError('Test session not found. Please start a new test.');
+          setTestCompleted(true);
+          sessionStorage.removeItem('testData');
+          return;
+        }
+        throw err;
+      }
+
+      if (['succeeded', 'canceled'].includes(testSession.status)) {
+        setError('This test has already been completed or canceled.');
+        setTestCompleted(true);
+        setTestResults(testSession);
+        sessionStorage.removeItem('testData');
+        return;
+      }
+
+      // Update test session status to 'succeeded'
+      await axios.put(
+        `/api/tests/${testSessionId}`,
+        { status: 'succeeded' },
         {
           headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json'
-          }
+            Authorization: `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
         }
       );
-      
-      // Get test results
-      const resultsResponse = await axios.get(
-        `https://synapaxon-backend.onrender.com/api/tests/${testSessionId}`,
-        {
-          headers: {
-            'Authorization': `Bearer ${token}`
-          }
-        }
-      );
-      
-      const resultsData = resultsResponse.data.data || resultsResponse.data;
-      
-      // Fetch updated questions with explanations
+
+      // Fetch student questions for results
+      const resultsResponse = await axios.get(`/api/student-questions/test/${testSessionId}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      const studentQuestions = resultsResponse.data.data || [];
+
+      // Update test results with answers
+      const resultsData = {
+        score: studentQuestions.filter(q => q.isCorrect).length,
+        totalQuestions: questions.length,
+        answers: studentQuestions.map(q => ({
+          question: q.question._id || q.question,
+          selectedAnswer: q.selectedAnswer,
+          isCorrect: q.isCorrect,
+          correctAnswer: q.correctAnswer,
+          timeTaken: q.timeTaken || 0,
+        })),
+      };
+
+      // Refresh question details
       const updatedQuestions = await Promise.all(
         questions.map(async (question) => {
           try {
-            const questionResponse = await axios.get(
-              `https://synapaxon-backend.onrender.com/api/questions/${question._id}`,
-              {
-                headers: {
-                  'Authorization': `Bearer ${token}`
-                }
-              }
-            );
-            console.log(`[${new Date().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' })}] Fetched question ${question._id}:`, questionResponse.data.data);
+            const questionResponse = await axios.get(`/api/questions/${question._id}`, {
+              headers: { Authorization: `Bearer ${token}` },
+            });
             return questionResponse.data.data;
           } catch (err) {
             console.error(`Error fetching question ${question._id}:`, err);
-            return question; // Fallback to original question if fetching fails
+            return question;
           }
         })
       );
-      
+
       setQuestions(updatedQuestions);
       setTestResults(resultsData);
       setTestCompleted(true);
-      
+      sessionStorage.removeItem('testData');
     } catch (err) {
-      console.error('Error submitting test:', err);
+      console.error('Error finalizing test:', err);
       if (err.response?.status === 401) {
-        alert("Session expired. Please log in again.");
-        navigate("/login");
+        alert('Session expired. Please log in again.');
+        navigate('/login');
       } else {
-        setError('Failed to submit test. Please try again.');
+        setError(`Failed to finalize test: ${err.response?.data?.message || err.message || 'Please try again.'}`);
       }
     } finally {
       setLoading(false);
     }
   };
-  
-  // Handle end test button
+
+  // End test
   const handleEndTest = () => {
-    const unansweredExists = userAnswers.some(a => a.selectedAnswer === null);
-    
+    const unansweredExists = userAnswers.some(a => a.selectedAnswer === null && !submittedQuestions.includes(a.questionId));
     if (unansweredExists) {
       setShowUnansweredModal(true);
     } else {
       submitUnansweredQuestions();
     }
   };
-  
-  // Handle direct submit
+
+  // Direct submit
   const handleDirectSubmit = async () => {
     setShowUnansweredModal(false);
     await finalizeTest();
   };
-  
-  // Handle submit with default for unanswered
+
+  // Submit with defaults
   const handleSubmitWithDefaults = async () => {
     setShowUnansweredModal(false);
     await submitUnansweredQuestions();
   };
-  
-  // Handle redirection to dashboard
+
+  // Back to dashboard
   const handleBackToDashboard = () => {
     if (confirm('Are you sure you want to leave?')) {
+      sessionStorage.removeItem('testData');
       navigate('/dashboard');
     }
   };
-  
-  // Open media in a new window
-  const openMediaModal = (media) => {
-    if (!media || !media.path || !media.mimetype) {
-      console.error('Invalid media object:', media);
-      alert('Invalid media data. Please try again.');
-      return;
-    }
 
-    const { mimetype, path, originalname } = media;
-    const baseUrl = 'https://synapaxon-backend.onrender.com';
-    const mediaUrl = path.startsWith('http') ? path : `${baseUrl}${path.startsWith('/') ? path : `/${path}`}`;
-
-    console.log(`[${new Date().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' })}] Opening media in new window:`, { mimetype, path, mediaUrl, originalname });
-
-    // Open a new window with the MediaViewer.html page
-    const viewerUrl = `https://synapaxon-frontend.onrender.com/viewer/MediaViewer.html?mediaUrl=${encodeURIComponent(mediaUrl)}&mimetype=${encodeURIComponent(mimetype)}&originalname=${encodeURIComponent(originalname || 'media file')}`;
-    // Open a popup window that is movable and resizable
-    window.open(
-      viewerUrl,
-      'MediaViewer',
-      'width=600,height=400,toolbar=no,location=no,directories=no,status=no,menubar=no,scrollbars=yes,resizable=yes'
-    );
-  };
-  
-  // Show loading state
+  // Loading state
   if (loading && !testCompleted) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-gray-50">
@@ -459,8 +425,8 @@ const TestRunnerPage = () => {
       </div>
     );
   }
-  
-  // Show error state
+
+  // Error state
   if (error) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-gray-50">
@@ -470,37 +436,28 @@ const TestRunnerPage = () => {
           </svg>
           <h2 className="text-xl font-semibold text-gray-700 mb-2">Error</h2>
           <p className="text-gray-500 mb-6">{error}</p>
-          <button 
-            onClick={handleBackToDashboard}
-            className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
-          >
+          <button onClick={handleBackToDashboard} className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700">
             Back to Dashboard
           </button>
         </div>
       </div>
     );
   }
-  
-  // Get current question
+
   const currentQuestion = questions[currentQuestionIndex];
-  
-  // Calculate progress
   const progress = ((currentQuestionIndex + 1) / questions.length) * 100;
-  const answeredCount = userAnswers.filter(a => a.selectedAnswer !== null).length;
-  const hasUserAnswered = userAnswers.find(a => a.questionId === currentQuestion?._id)?.selectedAnswer !== null;
+  const answeredCount = userAnswers.filter(a => a.selectedAnswer !== null && a.selectedAnswer !== -1).length;
   const isQuestionSubmitted = submittedQuestions.includes(currentQuestion?._id);
   const isQuestionFlagged = flaggedQuestions.includes(currentQuestion?._id);
 
-  // Show test completed with results
+  // Test results
   if (testCompleted && testResults) {
     const score = testResults.score ?? 0;
     const totalQuestions = testResults.totalQuestions ?? questions.length;
-    const scorePercentageRaw = testResults.scorePercentage ?? (totalQuestions > 0 ? (score / totalQuestions) * 100 : 0);
-    const scorePercentage = Math.round(Number(scorePercentageRaw));
+    const scorePercentage = Math.round(totalQuestions > 0 ? (score / totalQuestions) * 100 : 0);
     const answers = testResults.answers ?? [];
 
-    // Calculate analytics
-    const categoryStats = questions.reduce((acc, question, index) => {
+    const categoryStats = questions.reduce((acc, question) => {
       const answerData = answers.find(a => a && a.question === question._id);
       const category = question.category || 'Unknown';
       if (!acc[category]) {
@@ -511,7 +468,7 @@ const TestRunnerPage = () => {
       return acc;
     }, {});
 
-    const subjectStats = questions.reduce((acc, question, index) => {
+    const subjectStats = questions.reduce((acc, question) => {
       const answerData = answers.find(a => a && a.question === question._id);
       const subject = question.subject || 'Unknown';
       if (!acc[subject]) {
@@ -525,10 +482,11 @@ const TestRunnerPage = () => {
     const questionStats = {
       correct: answers.filter(a => a && a.isCorrect).length,
       incorrect: answers.filter(a => a && !a.isCorrect && a.selectedAnswer !== -1).length,
-      flagged: answers.filter(a => a && a.selectedAnswer === -1 && flaggedQuestions.includes(a.question)).length,
+      flagged: answers.filter(a => a && a.selectedAnswer === -1).length,
+      skipped: userAnswers.filter(a => a.selectedAnswer === null).length,
       avgTimePerQuestion: answers.length > 0
         ? Math.round(answers.reduce((sum, a) => sum + (a.timeTaken ?? 0), 0) / answers.length)
-        : 0
+        : 0,
     };
 
     return (
@@ -541,7 +499,6 @@ const TestRunnerPage = () => {
             <div className="p-6">
               <h2 className="text-2xl font-semibold mb-4">Your Results</h2>
               <div className="mb-8 p-4 bg-gray-50 rounded-lg">
-                {/* Summary Section */}
                 <div className="mb-6 grid grid-cols-1 md:grid-cols-3 gap-4">
                   <div className="p-4 bg-white rounded shadow text-center">
                     <h3 className="text-lg font-medium text-gray-500">Score</h3>
@@ -557,7 +514,6 @@ const TestRunnerPage = () => {
                   </div>
                 </div>
 
-                {/* Performance Breakdown */}
                 <div className="mb-8">
                   <h3 className="text-xl font-bold mb-4">Performance Breakdown</h3>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -592,18 +548,17 @@ const TestRunnerPage = () => {
                         <span className="font-medium">{questionStats.incorrect}</span>
                       </div>
                       <div>
-                        <span className="text-gray-600 block">Flagged/Skipped:</span>
+                        <span className="text-gray-600 block">Flagged:</span>
                         <span className="font-medium">{questionStats.flagged}</span>
                       </div>
                       <div>
-                        <span className="text-gray-600 block">Avg Time per Question:</span>
-                        <span className="font-medium">{questionStats.avgTimePerQuestion}s</span>
+                        <span className="text-gray-600 block">Skipped:</span>
+                        <span className="font-medium">{questionStats.skipped}</span>
                       </div>
                     </div>
                   </div>
                 </div>
 
-                {/* Question Review */}
                 <h3 className="text-xl font-bold mb-4">Question Review</h3>
                 <ul className="space-y-6">
                   {questions.map((question, index) => {
@@ -615,32 +570,15 @@ const TestRunnerPage = () => {
                     const isFlagged = flaggedQuestions.includes(question._id);
                     const explanation = question.explanation || 'No explanation available.';
 
-                    // Log media objects for debugging
-                    console.log(`[${new Date().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' })}] Question ${index + 1} Media:`, {
-                      questionMedia: question.questionMedia,
-                      optionMedia: question.options?.map(opt => opt.media).filter(Boolean),
-                      explanationMedia: question.explanationMedia,
-                    });
-
                     return (
                       <li key={question._id} className="border rounded-lg p-4 bg-white shadow-sm">
                         <div className="flex justify-between mb-2">
                           <h4 className="font-semibold text-gray-800">
-                            Q{index + 1}: {typeof question.questionText === 'object' 
-                              ? question.questionText.text 
-                              : question.questionText}
+                            Q{index + 1}: {typeof question.questionText === 'object' ? question.questionText.text : question.questionText}
                           </h4>
                           <div className="flex items-center space-x-2">
                             {isFlagged && (
                               <span className="px-2 py-1 bg-yellow-100 text-yellow-800 text-sm rounded-full">Flagged</span>
-                            )}
-                            {question.questionMedia && (
-                              <button
-                                onClick={() => openMediaModal(question.questionMedia)}
-                                className="px-2 py-1 bg-blue-100 text-blue-800 text-sm rounded hover:bg-blue-200"
-                              >
-                                View Question Media
-                              </button>
                             )}
                           </div>
                         </div>
@@ -648,17 +586,15 @@ const TestRunnerPage = () => {
                           {(question.options || []).map((opt, idx) => {
                             const isUserSelected = idx === selectedAnswer;
                             const isRight = idx === correctAnswer;
-                            
                             let bg = 'bg-white';
                             let icon = null;
                             if (isUserSelected) {
-                              if (isCorrect) {
-                                bg = 'bg-green-200 border border-green-400';
-                                icon = <span className="ml-2 text-green-600 font-bold">✓</span>;
-                              } else {
-                                bg = 'bg-red-200 border border-red-400';
-                                icon = <span className="ml-2 text-red-600 font-bold">✗</span>;
-                              }
+                              bg = isCorrect ? 'bg-green-200 border border-green-400' : 'bg-red-200 border border-red-400';
+                              icon = isCorrect ? (
+                                <span className="ml-2 text-green-600 font-bold">✓</span>
+                              ) : (
+                                <span className="ml-2 text-red-600 font-bold">✗</span>
+                              );
                             } else if (isRight) {
                               bg = 'bg-green-100 border border-green-300';
                               icon = <span className="ml-2 text-green-600 italic">(Correct answer)</span>;
@@ -670,14 +606,6 @@ const TestRunnerPage = () => {
                                   <strong>{String.fromCharCode(65 + idx)}.</strong> {typeof opt === 'object' ? opt.text : opt}
                                   {icon}
                                 </div>
-                                {typeof opt === 'object' && opt.media && (
-                                  <button
-                                    onClick={() => openMediaModal(opt.media)}
-                                    className="px-2 py-1 bg-blue-100 text-blue-800 text-sm rounded hover:bg-blue-200"
-                                  >
-                                    View Option Media
-                                  </button>
-                                )}
                               </li>
                             );
                           })}
@@ -692,20 +620,12 @@ const TestRunnerPage = () => {
                         <p className={`text-sm font-medium px-2 py-1 rounded inline-block ${
                           isCorrect ? 'bg-green-100 text-green-700' : selectedAnswer === -1 ? 'bg-yellow-100 text-yellow-700' : 'bg-red-100 text-red-700'
                         }`}>
-                          Your answer was {isCorrect ? 'correct ✅' : selectedAnswer === -1 ? 'skipped 🚩' : 'incorrect ❌'}
+                          Your answer was {isCorrect ? 'correct ✅' : selectedAnswer === -1 ? 'flagged 🚩' : 'incorrect ❌'}
                         </p>
-                        <div className="mt-2 flex items-start space-x-2">
-                          <p className="text-sm text-gray-600 flex-1">
+                        <div className="mt-2">
+                          <p className="text-sm text-gray-600">
                             <strong>Explanation:</strong> {explanation}
                           </p>
-                          {question.explanationMedia && (
-                            <button
-                              onClick={() => openMediaModal(question.explanationMedia)}
-                              className="px-2 py-1 bg-blue-100 text-blue-800 text-sm rounded hover:bg-blue-200"
-                            >
-                              View Explanation Media
-                            </button>
-                          )}
                         </div>
                       </li>
                     );
@@ -732,11 +652,10 @@ const TestRunnerPage = () => {
       </div>
     );
   }
-  
+
   // Main test interface
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Sidebar for navigation */}
       <div className={`fixed inset-y-0 left-0 w-64 bg-white shadow-lg transform transition-transform ${showSidebar ? 'translate-x-0' : '-translate-x-full'} z-20`}>
         <div className="flex justify-between items-center p-4 border-b">
           <h2 className="font-bold">Question Navigator</h2>
@@ -751,14 +670,14 @@ const TestRunnerPage = () => {
               const isSubmitted = submittedQuestions.includes(q._id);
               const isFlagged = flaggedQuestions.includes(q._id);
               const isCurrent = index === currentQuestionIndex;
-              
               let bgColor = 'bg-gray-200';
               if (isCurrent) bgColor = 'bg-blue-500 text-white';
               else if (isSubmitted) bgColor = 'bg-green-500 text-white';
               else if (isAnswered) bgColor = 'bg-blue-200';
-              
+              else if (isFlagged) bgColor = 'bg-yellow-200';
+
               return (
-                <button 
+                <button
                   key={q._id}
                   onClick={() => {
                     setCurrentQuestionIndex(index);
@@ -774,7 +693,6 @@ const TestRunnerPage = () => {
               );
             })}
           </div>
-          
           <div className="mt-6">
             <div className="flex items-center mb-2">
               <div className="w-4 h-4 bg-blue-500 rounded mr-2"></div>
@@ -788,6 +706,10 @@ const TestRunnerPage = () => {
               <div className="w-4 h-4 bg-blue-200 rounded mr-2"></div>
               <span>Answered</span>
             </div>
+            <div className="flex items-center mb-2">
+              <div className="w-4 h-4 bg-yellow-200 rounded mr-2"></div>
+              <span>Flagged</span>
+            </div>
             <div className="flex items-center">
               <div className="w-4 h-4 bg-gray-200 rounded mr-2"></div>
               <span>Not Answered</span>
@@ -795,27 +717,26 @@ const TestRunnerPage = () => {
           </div>
         </div>
       </div>
-      
-      {/* Modal for unanswered questions */}
+
       {showUnansweredModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-30">
           <div className="bg-white rounded-lg p-6 max-w-md mx-auto">
             <h2 className="text-xl font-bold mb-4">You have unanswered questions</h2>
             <p className="mb-6">Some questions are not yet answered. What would you like to do?</p>
             <div className="flex justify-end space-x-4">
-              <button 
+              <button
                 onClick={() => setShowUnansweredModal(false)}
                 className="px-4 py-2 border border-gray-300 rounded text-gray-700 hover:bg-gray-50"
               >
                 Go Back to Test
               </button>
-              <button 
+              <button
                 onClick={handleDirectSubmit}
                 className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
               >
                 Submit As Is
               </button>
-              <button 
+              <button
                 onClick={handleSubmitWithDefaults}
                 className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700"
               >
@@ -825,14 +746,13 @@ const TestRunnerPage = () => {
           </div>
         </div>
       )}
-      
+
       <div className="container mx-auto px-4 max-w-4xl py-8">
         <div className="bg-white rounded-lg shadow-lg overflow-hidden">
-          {/* Header */}
           <div className="bg-blue-600 p-4 flex justify-between items-center text-white">
             <div className="flex items-center">
-              <button 
-                onClick={toggleSidebar} 
+              <button
+                onClick={toggleSidebar}
                 className="mr-4 hover:bg-blue-700 p-1 rounded-full"
                 aria-label="Open question navigator"
               >
@@ -841,20 +761,19 @@ const TestRunnerPage = () => {
               <h1 className="text-xl font-bold">Test Session</h1>
             </div>
             <div className="flex items-center space-x-4">
-              <button 
-                onClick={() => toggleFlagQuestion(currentQuestion?._id)}  
+              <button
+                onClick={() => toggleFlagQuestion(currentQuestion?._id)}
                 className={`hover:bg-blue-700 p-1 rounded-full ${isQuestionFlagged ? 'text-yellow-300' : 'text-white'}`}
                 aria-label="Flag question"
               >
                 <Flag size={20} />
               </button>
-              
               {usePerQuestionTimer && (
                 <div className="flex items-center">
-                  <button 
-                    onClick={toggleTimerPause} 
+                  <button
+                    onClick={toggleTimerPause}
                     className="hover:bg-blue-700 p-1 rounded-full mr-2"
-                    aria-label={timerPaused ? "Resume timer" : "Pause timer"}
+                    aria-label={timerPaused ? 'Resume timer' : 'Pause timer'}
                   >
                     {timerPaused ? <PlayCircle size={20} /> : <PauseCircle size={20} />}
                   </button>
@@ -866,51 +785,44 @@ const TestRunnerPage = () => {
               )}
             </div>
           </div>
-          
-          {/* Progress */}
+
           <div className="bg-gray-50 px-6 py-3 border-b">
             <div className="flex justify-between mb-2">
               <span>Question {currentQuestionIndex + 1} of {questions.length}</span>
               <span>{answeredCount} of {questions.length} answered</span>
             </div>
             <div className="w-full bg-gray-200 rounded-full h-2">
-              <div 
-                className="bg-blue-600 h-2 rounded-full transition-all duration-300" 
+              <div
+                className="bg-blue-600 h-2 rounded-full transition-all duration-300"
                 style={{ width: `${progress}%` }}
               ></div>
             </div>
           </div>
-          
-          {/* Question */}
+
           <div className="p-6">
             <div className="mb-8">
               <div className="flex justify-between mb-4">
-                <h2 className="text-xl font-semibold">{currentQuestion?.questionText || currentQuestion?.text}</h2>
+                <h2 className="text-xl font-semibold">
+                  {typeof currentQuestion?.questionText === 'object' ? currentQuestion?.questionText.text : currentQuestion?.questionText}
+                </h2>
                 {isQuestionSubmitted && (
                   <span className="px-2 py-1 bg-green-100 text-green-800 text-sm rounded-full">Submitted</span>
                 )}
               </div>
-              
+
               <div className="space-y-4">
                 {(currentQuestion?.options || []).map((option, index) => {
-                  const isSelected = userAnswers.find(
-                    a => a.questionId === currentQuestion._id
-                  )?.selectedAnswer === index;
-                  
+                  const isSelected = userAnswers.find(a => a.questionId === currentQuestion._id)?.selectedAnswer === index;
                   return (
-                    <div 
+                    <div
                       key={index}
-                      onClick={() => handleAnswerSelect(index)}
+                      onClick={() => !isQuestionSubmitted && handleAnswerSelect(index)}
                       className={`flex items-center p-4 border rounded-lg cursor-pointer transition-colors ${
-                        isSelected 
-                          ? 'border-blue-500 bg-blue-50' 
-                          : 'border-gray-200 hover:bg-gray-50'
-                      }`}
+                        isSelected ? 'border-blue-500 bg-blue-50' : 'border-gray-200 hover:bg-gray-50'
+                      } ${isQuestionSubmitted ? 'cursor-not-allowed' : ''}`}
                     >
                       <div className={`flex-shrink-0 w-6 h-6 rounded-full mr-3 flex items-center justify-center ${
-                        isSelected 
-                          ? 'bg-blue-500 text-white' 
-                          : 'bg-gray-200 text-gray-700'
+                        isSelected ? 'bg-blue-500 text-white' : 'bg-gray-200 text-gray-700'
                       }`}>
                         {String.fromCharCode(65 + index)}
                       </div>
@@ -920,50 +832,42 @@ const TestRunnerPage = () => {
                 })}
               </div>
             </div>
-            
+
             <div className="flex justify-between mt-8">
               <div className="flex space-x-4">
                 <button
                   onClick={handlePrevQuestion}
                   disabled={currentQuestionIndex === 0}
                   className={`px-4 py-2 rounded flex items-center ${
-                    currentQuestionIndex === 0 
-                      ? 'bg-gray-200 text-gray-500 cursor-not-allowed' 
-                      : 'border border-gray-300 text-gray-600 hover:bg-gray-50'
+                    currentQuestionIndex === 0 ? 'bg-gray-200 text-gray-500 cursor-not-allowed' : 'border border-gray-300 text-gray-600 hover:bg-gray-50'
                   }`}
                 >
                   <ChevronLeft size={16} className="mr-1" /> Previous
                 </button>
-                
                 <button
                   onClick={handleNextQuestion}
                   disabled={currentQuestionIndex === questions.length - 1}
                   className={`px-4 py-2 rounded flex items-center ${
-                    currentQuestionIndex === questions.length - 1
-                      ? 'bg-gray-200 text-gray-500 cursor-not-allowed' 
-                      : 'border border-gray-300 text-gray-600 hover:bg-gray-50'
+                    currentQuestionIndex === questions.length - 1 ? 'bg-gray-200 text-gray-500 cursor-not-allowed' : 'border border-gray-300 text-gray-600 hover:bg-gray-50'
                   }`}
                 >
                   Next <ChevronRight size={16} className="ml-1" />
                 </button>
               </div>
-              
               <div className="flex space-x-4">
                 <button
                   onClick={() => handleSubmitQuestion()}
                   disabled={isQuestionSubmitted || submitting}
                   className={`px-6 py-2 rounded flex items-center ${
-                    isQuestionSubmitted || submitting
-                      ? 'bg-gray-200 text-gray-500 cursor-not-allowed'
-                      : 'bg-blue-600 text-white hover:bg-blue-700'
+                    isQuestionSubmitted || submitting ? 'bg-gray-200 text-gray-500 cursor-not-allowed' : 'bg-blue-600 text-white hover:bg-blue-700'
                   }`}
                 >
-                  <Check size={16} className="mr-2" /> 
+                  <Check size={16} className="mr-2" />
                   {submitting ? 'Submitting...' : isQuestionSubmitted ? 'Submitted' : 'Submit Question'}
                 </button>
               </div>
             </div>
-            
+
             <div className="mt-12 pt-6 border-t flex justify-between">
               <button
                 onClick={handleBackToDashboard}
@@ -971,7 +875,6 @@ const TestRunnerPage = () => {
               >
                 Cancel Test
               </button>
-              
               <button
                 onClick={handleEndTest}
                 className="px-6 py-2 bg-red-600 text-white rounded hover:bg-red-700"
