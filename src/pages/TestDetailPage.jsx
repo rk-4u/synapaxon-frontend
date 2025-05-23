@@ -269,7 +269,7 @@ const TestDetailPage = () => {
 
   if (error) {
     return (
-      <div className="max-w-7xl mx-auto mt-12 p-8 bg-red-50 border border-red-300 rounded-2xl shadow-lg">
+      <div className="max-w-[95%] mx-auto mt-12 p-8 bg-red-50 border border-red-300 rounded-2xl shadow-lg">
         <div className="flex items-center">
           <svg className="w-8 h-8 text-red-600 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
@@ -282,7 +282,7 @@ const TestDetailPage = () => {
 
   if (!testDetail) {
     return (
-      <div className="max-w-7xl mx-auto mt-12 p-8 bg-yellow-50 border border-yellow-300 rounded-2xl shadow-lg">
+      <div className="max-w-[95%] mx-auto mt-12 p-8 bg-yellow-50 border border-yellow-300 rounded-2xl shadow-lg">
         <div className="flex items-center">
           <svg className="w-8 h-8 text-yellow-600 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
@@ -295,7 +295,7 @@ const TestDetailPage = () => {
 
   return (
     <div className="min-h-screen bg-gray-50 py-12">
-      <div className="container mx-auto px-6 max-w-7xl">
+      <div className="max-w-[95%] mx-auto px-6">
         <div className="mb-8">
           <button
             onClick={() => navigate('/dashboard')}
@@ -313,199 +313,202 @@ const TestDetailPage = () => {
             <h1 className="text-3xl font-extrabold tracking-tight">Test Details</h1>
           </div>
 
-          <div className="p-8">
-            {/* Test Summary & Performance */}
-            <div className="border-b border-gray-200 mb-8">
-              <button
-                onClick={() => setIsSummaryOpen(!isSummaryOpen)}
-                className="w-full p-6 flex justify-between items-center text-left bg-gray-50 hover:bg-gray-100 transition-colors"
-              >
-                <h2 className="text-2xl font-semibold text-gray-900">Test Summary & Performance</h2>
-                {isSummaryOpen ? (
-                  <ChevronUp className="w-6 h-6 text-gray-600" />
-                ) : (
-                  <ChevronDown className="w-6 h-6 text-gray-600" />
-                )}
-              </button>
-              {isSummaryOpen && (
-                <div className="p-6 bg-gray-50">
-                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                    <div className="bg-white p-6 rounded-xl shadow-sm hover:shadow-lg transition-all duration-300 transform hover:-translate-y-1">
-                      <h3 className="text-xl font-semibold text-gray-900 mb-4">Summary</h3>
-                      <div className="space-y-4 text-base">
-                        <div className="flex justify-between">
-                          <span className="text-gray-600">Date</span>
-                          <span className="font-medium text-gray-900">{formatDate(testDetail.startedAt)}</span>
-                        </div>
-                        <div className="flex justify-between">
-                          <span className="text-gray-600">Status</span>
-                          <span
-                            className={`font-medium ${
-                              testDetail.status === 'succeeded'
-                                ? 'text-green-600'
-                                : testDetail.status === 'canceled'
-                                ? 'text-red-600'
-                                : 'text-yellow-600'
-                            }`}
-                          >
-                            {testDetail.status === 'succeeded' ? 'Completed' : testDetail.status === 'canceled' ? 'Canceled' : 'In Progress'}
-                          </span>
-                        </div>
-                        <div className="flex justify-between">
-                          <span className="text-gray-600">Duration</span>
-                          <span className="font-medium text-gray-900">{formatDuration(testDetail.startedAt, testDetail.completedAt)}</span>
-                        </div>
-                        <div className="flex justify-between">
-                          <span className="text-gray-600">Total Questions</span>
-                          <span className="font-medium text-gray-900">{testDetail.totalQuestions}</span>
-                        </div>
-                      </div>
-                    </div>
-                    <div className="bg-white p-6 rounded-xl shadow-sm hover:shadow-lg transition-all duration-300 transform hover:-translate-y-1">
-                      <h3 className="text-xl font-semibold text-gray-900 mb-4">Performance</h3>
-                      <div className="space-y-4 text-base">
-                        <div className="flex justify-between">
-                          <span className="text-gray-600">Score</span>
-                          <span className="font-medium text-gray-900">{testDetail.correctAnswers}/{testDetail.totalQuestions}</span>
-                        </div>
-                        <div className="flex justify-between">
-                          <span className="text-gray-600">Percentage</span>
-                          <span
-                            className={`font-medium ${
-                              testDetail.scorePercentage >= 70
-                                ? 'text-green-600'
-                                : testDetail.scorePercentage >= 40
-                                ? 'text-yellow-600'
-                                : 'text-red-600'
-                            }`}
-                          >
-                            {testDetail.scorePercentage}%
-                          </span>
-                        </div>
-                        <div className="mt-4">
-                          <div className="flex items-center justify-between text-sm text-gray-600 mb-2">
-                            <span>Progress</span>
-                            <span>{testDetail.scorePercentage}%</span>
+          <div className="p-8 flex lg:flex-row flex-col gap-6">
+            {/* Left Column: Test Summary, Filters, Performance Breakdown */}
+            <div className="w-full lg:w-[45%] flex flex-col gap-6">
+              {/* Test Summary & Performance */}
+              <div className="border-b border-gray-200">
+                <button
+                  onClick={() => setIsSummaryOpen(!isSummaryOpen)}
+                  className="w-full p-6 flex justify-between items-center text-left bg-gray-50 hover:bg-gray-100 transition-colors"
+                >
+                  <h2 className="text-2xl font-semibold text-gray-900">Test Summary & Performance</h2>
+                  {isSummaryOpen ? (
+                    <ChevronUp className="w-6 h-6 text-gray-600" />
+                  ) : (
+                    <ChevronDown className="w-6 h-6 text-gray-600" />
+                  )}
+                </button>
+                {isSummaryOpen && (
+                  <div className="p-6 bg-gray-50">
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                      <div className="bg-white p-6 rounded-xl shadow-sm hover:shadow-lg transition-all duration-300 transform hover:-translate-y-1">
+                        <h3 className="text-xl font-semibold text-gray-900 mb-4">Summary</h3>
+                        <div className="space-y-4 text-base">
+                          <div className="flex justify-between">
+                            <span className="text-gray-600">Date</span>
+                            <span className="font-medium text-gray-900">{formatDate(testDetail.startedAt)}</span>
                           </div>
-                          <div className="w-full bg-gray-200 rounded-full h-3">
-                            <div
-                              className={`h-3 rounded-full ${
-                                testDetail.scorePercentage >= 70
-                                  ? 'bg-green-500'
-                                  : testDetail.scorePercentage >= 40
-                                  ? 'bg-yellow-500'
-                                  : 'bg-red-500'
+                          <div className="flex justify-between">
+                            <span className="text-gray-600">Status</span>
+                            <span
+                              className={`font-medium ${
+                                testDetail.status === 'succeeded'
+                                  ? 'text-green-600'
+                                  : testDetail.status === 'canceled'
+                                  ? 'text-red-600'
+                                  : 'text-yellow-600'
                               }`}
-                              style={{ width: `${testDetail.scorePercentage}%` }}
-                            ></div>
+                            >
+                              {testDetail.status === 'succeeded' ? 'Completed' : testDetail.status === 'canceled' ? 'Canceled' : 'In Progress'}
+                            </span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span className="text-gray-600">Duration</span>
+                            <span className="font-medium text-gray-900">{formatDuration(testDetail.startedAt, testDetail.completedAt)}</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span className="text-gray-600">Total Questions</span>
+                            <span className="font-medium text-gray-900">{testDetail.totalQuestions}</span>
+                          </div>
+                        </div>
+                      </div>
+                      <div className="bg-white p-6 rounded-xl shadow-sm hover:shadow-lg transition-all duration-300 transform hover:-translate-y-1">
+                        <h3 className="text-xl font-semibold text-gray-900 mb-4">Performance</h3>
+                        <div className="space-y-4 text-base">
+                          <div className="flex justify-between">
+                            <span className="text-gray-600">Score</span>
+                            <span className="font-medium text-gray-900">{testDetail.correctAnswers}/{testDetail.totalQuestions}</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span className="text-gray-600">Percentage</span>
+                            <span
+                              className={`font-medium ${
+                                testDetail.scorePercentage >= 70
+                                  ? 'text-green-600'
+                                  : testDetail.scorePercentage >= 40
+                                  ? 'text-yellow-600'
+                                  : 'text-red-600'
+                              }`}
+                            >
+                              {testDetail.scorePercentage}%
+                            </span>
+                          </div>
+                          <div className="mt-4">
+                            <div className="flex items-center justify-between text-sm text-gray-600 mb-2">
+                              <span>Progress</span>
+                              <span>{testDetail.scorePercentage}%</span>
+                            </div>
+                            <div className="w-full bg-gray-200 rounded-full h-3">
+                              <div
+                                className={`h-3 rounded-full ${
+                                  testDetail.scorePercentage >= 70
+                                    ? 'bg-green-500'
+                                    : testDetail.scorePercentage >= 40
+                                    ? 'bg-yellow-500'
+                                    : 'bg-red-500'
+                                }`}
+                                style={{ width: `${testDetail.scorePercentage}%` }}
+                              ></div>
+                            </div>
                           </div>
                         </div>
                       </div>
                     </div>
                   </div>
-                </div>
-              )}
-            </div>
-
-            {/* Test Filters */}
-            <div className="border-b border-gray-200 mb-8">
-              <button
-                onClick={() => setIsFiltersOpen(!isFiltersOpen)}
-                className="w-full p-6 flex justify-between items-center text-left bg-gray-50 hover:bg-gray-100 transition-colors"
-              >
-                <h2 className="text-2xl font-semibold text-gray-900">Test Filters</h2>
-                {isFiltersOpen ? (
-                  <ChevronUp className="w-6 h-6 text-gray-600" />
-                ) : (
-                  <ChevronDown className="w-6 h-6 text-gray-600" />
                 )}
-              </button>
-              {isFiltersOpen && (
-                <div className="p-6 bg-gray-50">
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6 text-base">
-                    <div className="bg-white p-6 rounded-xl shadow-sm hover:shadow-lg transition-all duration-300 transform hover:-translate-y-1">
-                      <span className="text-gray-600 block mb-2">Difficulty</span>
-                      <span className="font-medium text-gray-900 capitalize">{testDetail.filters?.difficulty || 'N/A'}</span>
-                    </div>
-                    <div className="bg-white p-6 rounded-xl shadow-sm hover:shadow-lg transition-all duration-300 transform hover:-translate-y-1">
-                      <span className="text-gray-600 block mb-2">Question Count</span>
-                      <span className="font-medium text-gray-900">{testDetail.filters?.count || 'N/A'}</span>
+              </div>
+
+              {/* Test Filters */}
+              <div className="border-b border-gray-200">
+                <button
+                  onClick={() => setIsFiltersOpen(!isFiltersOpen)}
+                  className="w-full p-6 flex justify-between items-center text-left bg-gray-50 hover:bg-gray-100 transition-colors"
+                >
+                  <h2 className="text-2xl font-semibold text-gray-900">Test Filters</h2>
+                  {isFiltersOpen ? (
+                    <ChevronUp className="w-6 h-6 text-gray-600" />
+                  ) : (
+                    <ChevronDown className="w-6 h-6 text-gray-600" />
+                  )}
+                </button>
+                {isFiltersOpen && (
+                  <div className="p-6 bg-gray-50">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 text-base">
+                      <div className="bg-white p-6 rounded-xl shadow-sm hover:shadow-lg transition-all duration-300 transform hover:-translate-y-1">
+                        <span className="text-gray-600 block mb-2">Difficulty</span>
+                        <span className="font-medium text-gray-900 capitalize">{testDetail.filters?.difficulty || 'N/A'}</span>
+                      </div>
+                      <div className="bg-white p-6 rounded-xl shadow-sm hover:shadow-lg transition-all duration-300 transform hover:-translate-y-1">
+                        <span className="text-gray-600 block mb-2">Question Count</span>
+                        <span className="font-medium text-gray-900">{testDetail.filters?.count || 'N/A'}</span>
+                      </div>
                     </div>
                   </div>
-                </div>
-              )}
-            </div>
-
-            {/* Performance Breakdown */}
-            <div className="border-b border-gray-200 mb-8">
-              <button
-                onClick={() => setIsAnalyticsOpen(!isAnalyticsOpen)}
-                className="w-full p-6 flex justify-between items-center text-left bg-gray-50 hover:bg-gray-100 transition-colors"
-              >
-                <h2 className="text-2xl font-semibold text-gray-900">Performance Breakdown</h2>
-                {isAnalyticsOpen ? (
-                  <ChevronUp className="w-6 h-6 text-gray-600" />
-                ) : (
-                  <ChevronDown className="w-6 h-6 text-gray-600" />
                 )}
-              </button>
-              {isAnalyticsOpen && (
-                <div className="p-6 bg-gray-50">
-                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 text-base">
-                    <div className="bg-white p-6 rounded-xl shadow-sm hover:shadow-lg transition-all duration-300 transform hover:-translate-y-1">
-                      <h3 className="text-lg font-semibold text-gray-900 mb-4">By Category</h3>
-                      {Object.entries(analytics.categoryStats || {}).map(([category, stats]) => (
-                        <div key={category} className="flex justify-between mb-3">
-                          <span className="text-gray-600">{category}</span>
+              </div>
+
+              {/* Performance Breakdown */}
+              <div className="border-b border-gray-200">
+                <button
+                  onClick={() => setIsAnalyticsOpen(!isAnalyticsOpen)}
+                  className="w-full p-6 flex justify-between items-center text-left bg-gray-50 hover:bg-gray-100 transition-colors"
+                >
+                  <h2 className="text-2xl font-semibold text-gray-900">Performance Breakdown</h2>
+                  {isAnalyticsOpen ? (
+                    <ChevronUp className="w-6 h-6 text-gray-600" />
+                  ) : (
+                    <ChevronDown className="w-6 h-6 text-gray-600" />
+                  )}
+                </button>
+                {isAnalyticsOpen && (
+                  <div className="p-6 bg-gray-50">
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 text-base">
+                      <div className="bg-white p-6 rounded-xl shadow-sm hover:shadow-lg transition-all duration-300 transform hover:-translate-y-1">
+                        <h3 className="text-lg font-semibold text-gray-900 mb-4">By Category</h3>
+                        {Object.entries(analytics.categoryStats || {}).map(([category, stats]) => (
+                          <div key={category} className="flex justify-between mb-3">
+                            <span className="text-gray-600">{category}</span>
+                            <span className="font-medium text-gray-900">
+                              {stats.correct}/{stats.total} ({Math.round((stats.correct / stats.total) * 100)}%)
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                      <div className="bg-white p-6 rounded-xl shadow-sm hover:shadow-lg transition-all duration-300 transform hover:-translate-y-1">
+                        <h3 className="text-lg font-semibold text-gray-900 mb-4">By Subject</h3>
+                        {Object.entries(analytics.subjectStats || {}).map(([subject, stats]) => (
+                          <div key={subject} className="flex justify-between mb-3">
+                            <span className="text-gray-600">{subject}</span>
+                            <span className="font-medium text-gray-900">
+                              {stats.correct}/{stats.total} ({Math.round((stats.correct / stats.total) * 100)}%)
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                    <div className="mt-6">
+                      <h3 className="text-lg font-semibold text-gray-900 mb-4">Question Statistics</h3>
+                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 text-base">
+                        <div className="bg-white p-6 rounded-xl shadow-sm hover:shadow-lg transition-all duration-300 transform hover:-translate-y-1">
+                          <span className="text-gray-600 block mb-2">Correct</span>
+                          <span className="font-medium text-gray-900">{analytics.questionStats?.correct || 0}</span>
+                        </div>
+                        <div className="bg-white p-6 rounded-xl shadow-sm hover:shadow-lg transition-all duration-300 transform hover:-translate-y-1">
+                          <span className="text-gray-600 block mb-2">Incorrect</span>
+                          <span className="font-medium text-gray-900">{analytics.questionStats?.incorrect || 0}</span>
+                        </div>
+                        <div className="bg-white p-6 rounded-xl shadow-sm hover:shadow-lg transition-all duration-300 transform hover:-translate-y-1">
+                          <span className="text-gray-600 block mb-2">Flagged/Skipped</span>
+                          <span className="font-medium text-gray-900">{analytics.questionStats?.flagged || 0}</span>
+                        </div>
+                        <div className="bg-white p-6 rounded-xl shadow-sm hover:shadow-lg transition-all duration-300 transform hover:-translate-y-1">
+                          <span className="text-gray-600 block mb-2">Avg Time per Question</span>
                           <span className="font-medium text-gray-900">
-                            {stats.correct}/{stats.total} ({Math.round((stats.correct / stats.total) * 100)}%)
+                            {analytics.questionStats?.avgTimePerQuestion === 'N/A'
+                              ? 'N/A'
+                              : `${analytics.questionStats.avgTimePerQuestion}s`}
                           </span>
                         </div>
-                      ))}
-                    </div>
-                    <div className="bg-white p-6 rounded-xl shadow-sm hover:shadow-lg transition-all duration-300 transform hover:-translate-y-1">
-                      <h3 className="text-lg font-semibold text-gray-900 mb-4">By Subject</h3>
-                      {Object.entries(analytics.subjectStats || {}).map(([subject, stats]) => (
-                        <div key={subject} className="flex justify-between mb-3">
-                          <span className="text-gray-600">{subject}</span>
-                          <span className="font-medium text-gray-900">
-                            {stats.correct}/{stats.total} ({Math.round((stats.correct / stats.total) * 100)}%)
-                          </span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                  <div className="mt-6">
-                    <h3 className="text-lg font-semibold text-gray-900 mb-4">Question Statistics</h3>
-                    <div className="grid grid-cols-1 md:grid-cols-4 gap-6 text-base">
-                      <div className="bg-white p-6 rounded-xl shadow-sm hover:shadow-lg transition-all duration-300 transform hover:-translate-y-1">
-                        <span className="text-gray-600 block mb-2">Correct</span>
-                        <span className="font-medium text-gray-900">{analytics.questionStats?.correct || 0}</span>
-                      </div>
-                      <div className="bg-white p-6 rounded-xl shadow-sm hover:shadow-lg transition-all duration-300 transform hover:-translate-y-1">
-                        <span className="text-gray-600 block mb-2">Incorrect</span>
-                        <span className="font-medium text-gray-900">{analytics.questionStats?.incorrect || 0}</span>
-                      </div>
-                      <div className="bg-white p-6 rounded-xl shadow-sm hover:shadow-lg transition-all duration-300 transform hover:-translate-y-1">
-                        <span className="text-gray-600 block mb-2">Flagged/Skipped</span>
-                        <span className="font-medium text-gray-900">{analytics.questionStats?.flagged || 0}</span>
-                      </div>
-                      <div className="bg-white p-6 rounded-xl shadow-sm hover:shadow-lg transition-all duration-300 transform hover:-translate-y-1">
-                        <span className="text-gray-600 block mb-2">Avg Time per Question</span>
-                        <span className="font-medium text-gray-900">
-                          {analytics.questionStats?.avgTimePerQuestion === 'N/A'
-                            ? 'N/A'
-                            : `${analytics.questionStats.avgTimePerQuestion}s`}
-                        </span>
                       </div>
                     </div>
                   </div>
-                </div>
-              )}
+                )}
+              </div>
             </div>
 
-            {/* Questions & Answers */}
-            <div>
+            {/* Right Column: Questions & Answers */}
+            <div className="w-full lg:w-[45%]">
               <div className="flex justify-between items-center mb-8">
                 <h2 className="text-2xl font-semibold text-gray-900">Questions & Answers</h2>
                 <div className="flex items-center space-x-3">
@@ -527,12 +530,12 @@ const TestDetailPage = () => {
               {questions.length > 0 ? (
                 <>
                   {questions.map((question, qIndex) => (
-                    <div key={question._id} className="mb-4 bg-white border border-gray-200 rounded-xl shadow-sm hover:shadow-lg transition-all duration-300">
+                    <div key={question._id} className="mb-6 bg-white border border-gray-200 rounded-xl shadow-sm hover:shadow-lg transition-all duration-300">
                       <button
                         onClick={() => toggleQuestion(question._id)}
-                        className="w-full p-6 flex justify-between items-center text-left hover:bg-gray-50 transition-colors"
+                        className="w-full p-8 flex justify-between items-center text-left hover:bg-gray-50 transition-colors"
                       >
-                        <h3 className="text-lg font-semibold text-gray-900">
+                        <h3 className="text-xl font-semibold text-gray-900">
                           Q{qIndex + 1}: {question.question?.questionText || 'Question not available'}
                         </h3>
                         {expandedQuestions[question._id] ? (
@@ -542,9 +545,9 @@ const TestDetailPage = () => {
                         )}
                       </button>
                       {expandedQuestions[question._id] && (
-                        <div className="p-6 border-t border-gray-200">
-                          <div className="space-y-3 mb-4">
-                            {question.question?.options?.map((option, oIndex) => (
+                        <div className="p-8 border-t border-gray-200">
+                          <div className="space-y-4 mb-6">
+                            {question.options?.map((option, oIndex) => (
                               <div
                                 key={oIndex}
                                 className={`p-4 rounded-lg flex items-center space-x-4 ${
@@ -597,9 +600,9 @@ const TestDetailPage = () => {
                             ))}
                           </div>
                           {renderMedia(questionDetails[question._id]?.media)}
-                          <div className="mt-4">
+                          <div className="mt-6">
                             <h4 className="text-base font-semibold text-gray-900 mb-2">Explanation</h4>
-                            <p className="text-sm text-gray-700">{questionDetails[question._id]?.explanation || 'No explanation available'}</p>
+                            <p className="text-base text-gray-700">{questionDetails[question._id]?.explanation || 'No explanation available'}</p>
                           </div>
                           <div className="text-sm text-gray-500 mt-4">
                             <span>Category: {question.category || 'N/A'}</span>
@@ -634,25 +637,25 @@ const TestDetailPage = () => {
                   )}
                 </>
               ) : (
-                <div className="text-center text-gray-600 py-6 text-lg font-medium">
+                <div className="text-center text-gray-600 py-8 text-lg font-medium">
                   No questions found for this filter.
                 </div>
               )}
-            </div>
 
-            <div className="mt-8 flex justify-end space-x-4">
-              <button
-                onClick={() => navigate('/dashboard')}
-                className="px-6 py-3 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors text-base font-semibold"
-              >
-                Back to Dashboard
-              </button>
-              <button
-                onClick={() => navigate('/dashboard')}
-                className="px-6 py-3 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors text-base font-semibold"
-              >
-                Start a New Test
-              </button>
+              <div className="mt-8 flex justify-end space-x-4">
+                <button
+                  onClick={() => navigate('/dashboard')}
+                  className="px-6 py-3 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors text-base font-semibold"
+                >
+                  Back to Dashboard
+                </button>
+                <button
+                  onClick={() => navigate('/dashboard')}
+                  className="px-6 py-3 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors text-base font-semibold"
+                >
+                  Start a New Test
+                </button>
+              </div>
             </div>
           </div>
         </div>

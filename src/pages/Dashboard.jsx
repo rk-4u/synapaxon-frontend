@@ -36,7 +36,7 @@ function Dashboard() {
                 className="bg-gradient-to-br from-green-200 to-green-400 p-6 rounded-2xl shadow-md hover:shadow-xl transform hover:scale-105 transition duration-300 cursor-pointer"
               >
                 <FiTrendingUp className="text-3xl text-green-800 mb-2" />
-                <h2 className="text-2xl font-bold text-green-900 mb-1">Step I</h2>
+                <h2 className="text-2xl font-bold text-green-900 mb-1">Step 1</h2>
                 <p className="text-green-800 text-sm">Start your journey with core fundamentals</p>
               </div>
 
@@ -45,7 +45,7 @@ function Dashboard() {
                 className="bg-gradient-to-br from-blue-200 to-blue-400 p-6 rounded-2xl shadow-md hover:shadow-xl transform hover:scale-105 transition duration-300 cursor-pointer"
               >
                 <FiLayers className="text-3xl text-blue-800 mb-2" />
-                <h2 className="text-2xl font-bold text-blue-900 mb-1">Step II</h2>
+                <h2 className="text-2xl font-bold text-blue-900 mb-1">Step 2</h2>
                 <p className="text-blue-800 text-sm">Build deeper understanding with systems-based questions</p>
               </div>
 
@@ -54,7 +54,7 @@ function Dashboard() {
                 className="bg-gradient-to-br from-purple-200 to-purple-400 p-6 rounded-2xl shadow-md hover:shadow-xl transform hover:scale-105 transition duration-300 cursor-pointer"
               >
                 <FiActivity className="text-3xl text-purple-800 mb-2" />
-                <h2 className="text-2xl font-bold text-purple-900 mb-1">Step III</h2>
+                <h2 className="text-2xl font-bold text-purple-900 mb-1">Step 3</h2>
                 <p className="text-purple-800 text-sm">Tackle real-world clinical cases and scenarios</p>
               </div>
             </div>

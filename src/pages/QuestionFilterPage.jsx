@@ -315,8 +315,6 @@ export default function QuestionFilterPage() {
         throw new Error("Invalid test session data: Missing testSessionId or questions.");
       }
 
-      // Log testSessionId for debugging
-      console.log("Created test session with ID:", testSessionId);
 
       // Prepare test data
       const testData = {
