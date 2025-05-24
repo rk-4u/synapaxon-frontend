@@ -11,6 +11,7 @@ import EnhancedCreateQuestionForm from './EnhancedCreateQuestionForm';
 function Dashboard() {
   const { currentUser, logout } = useAuth();
   const [activeComponent, setActiveComponent] = useState('welcome');
+  const localStorageName = localStorage.getItem('username') || currentUser?.name;
 
   const handleNavClick = (component) => {
     setActiveComponent(component);
@@ -28,8 +29,8 @@ function Dashboard() {
       default:
         return (
           <div className="bg-white p-8 rounded-lg shadow-md">
-            <h1 className="text-3xl font-bold mb-6">Welcome, {currentUser?.name || 'User'} 👋</h1>
-            <p className="text-gray-600 mb-6">Select an option from the navigation bar above to begin.</p>
+            <h1 className="text-3xl font-bold mb-6">Welcome, {currentUser?.name || localStorageName || 'User'} 👋</h1>
+            <p className="text-gray-600 mb-6">Select an option from the navigation bar to begin.</p>
            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
               <div 
                 onClick={() => handleNavClick('test')}

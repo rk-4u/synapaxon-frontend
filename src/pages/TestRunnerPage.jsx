@@ -2,69 +2,27 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import axios from '../api/axiosConfig';
 import { Menu, Clock, Flag, Check, ChevronLeft, ChevronRight, X, PlayCircle, PauseCircle } from 'lucide-react';
+import MediaDisplay from './MediaDisplay';
 
-// MediaDisplay Component to handle arrays and URL media
-const MediaDisplay = ({ media, label }) => {
-  // Normalize media to array
-  const mediaItems = Array.isArray(media) ? media : media ? [media] : [];
+const ErrorBoundary = ({ children }) => {
+  const [hasError, setHasError] = useState(false);
 
-  if (!mediaItems.length) return null;
+  useEffect(() => {
+    setHasError(false);
+  }, [children]);
+
+  if (hasError) {
+    return <p className="text-red-500">Error loading media. Please try again.</p>;
+  }
 
   return (
-    <div className="mt-2">
-      <span className="text-sm text-gray-600">{label}:</span>
-      <div className="flex flex-wrap gap-2 mt-1">
-        {mediaItems.map((item, index) => {
-          if (!item?.mimetype || !item?.path) return null;
-
-          if (item.mimetype === 'text/url') {
-            // Render URL as clickable link
-            return (
-              <a
-                key={index}
-                href={item.path}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-blue-600 hover:underline text-sm"
-              >
-                {item.originalname || 'View URL'}
-              </a>
-            );
-          } else if (item.mimetype.startsWith('image/')) {
-            return (
-              <img
-                key={index}
-                src={item.path}
-                alt={item.originalname || 'Media'}
-                className="max-w-[100px] max-h-[100px] object-contain"
-              />
-            );
-          } else if (item.mimetype.startsWith('video/')) {
-            return (
-              <video
-                key={index}
-                src={item.path}
-                controls
-                className="max-w-[200px] max-h-[200px]"
-              >
-                Your browser does not support the video tag.
-              </video>
-            );
-          } else {
-            return (
-              <a
-                key={index}
-                href={item.path}
-                download
-                className="text-blue-600 hover:underline text-sm"
-              >
-                {item.originalname || 'Download Media'}
-              </a>
-            );
-          }
-        })}
-      </div>
-    </div>
+    <React.Fragment>
+      {React.Children.map(children, (child) =>
+        React.cloneElement(child, {
+          onError: () => setHasError(true),
+        })
+      )}
+    </React.Fragment>
   );
 };
 
@@ -615,6 +573,47 @@ const TestRunnerPage = () => {
     });
   };
 
+  // Render explanation with bullet points
+  const renderExplanation = (explanation, questionId) => {
+    if (!explanation || explanation === 'No explanation available.') {
+      return <p className="text-gray-700 text-base">{explanation}</p>;
+    }
+
+    // Split by periods, trim, and filter out empty segments
+    const segments = explanation
+      .split('.')
+      .map(segment => segment.trim())
+      .filter(segment => segment.length > 0);
+
+    if (segments.length <= 1) {
+      return <p className="text-gray-700 text-base">{renderHighlightedText(explanation, questionId)}</p>;
+    }
+
+    return (
+      <ul className="list-disc pl-5 space-y-2">
+        {segments.map((segment, index) => (
+          <li key={index} className="text-gray-700 text-base">
+            {renderHighlightedText(segment, questionId)}
+          </li>
+        ))}
+      </ul>
+    );
+  };
+
+  // Render highlighted text
+  const renderHighlightedText = (text, questionId) => {
+    let result = text || '';
+    Object.entries(highlights).forEach(([key, { text: highlightText, color, questionId: highlightQuestionId }]) => {
+      if (highlightQuestionId === questionId && result.includes(highlightText)) {
+        result = result.replace(
+          highlightText,
+          `<span class="highlight" data-key="${key}" style="background-color: ${color}">${highlightText}</span>`
+        );
+      }
+    });
+    return <span dangerouslySetInnerHTML={{ __html: result }} />;
+  };
+
   // Loading state
   if (loading && !testCompleted) {
     return (
@@ -652,20 +651,6 @@ const TestRunnerPage = () => {
   const isQuestionSubmitted = submittedQuestions.includes(currentQuestion?._id);
   const isQuestionFlagged = flaggedQuestions.includes(currentQuestion?._id);
   const submissionResult = submissionResults[currentQuestion?._id];
-
-  // Render highlighted text
-  const renderHighlightedText = (text, questionId) => {
-    let result = text || '';
-    Object.entries(highlights).forEach(([key, { text: highlightText, color, questionId: highlightQuestionId }]) => {
-      if (highlightQuestionId === questionId && result.includes(highlightText)) {
-        result = result.replace(
-          highlightText,
-          `<span class="highlight" data-key="${key}" style="background-color: ${color}">${highlightText}</span>`
-        );
-      }
-    });
-    return <span dangerouslySetInnerHTML={{ __html: result }} />;
-  };
 
   // Main test interface
   return (
@@ -861,11 +846,18 @@ const TestRunnerPage = () => {
                           currentQuestion._id
                         )
                       : 'No question text'}
-                    {isQuestionSubmitted && currentQuestion?.questionMedia?.length > 0 && (
-                      <MediaDisplay media={currentQuestion.questionMedia} label="Question Media" />
-                    )}
                   </h2>
                 </div>
+                {/* Question Media */}
+                {isQuestionSubmitted && currentQuestion?.questionMedia?.length > 0 && (
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    {currentQuestion.questionMedia.map((media, index) => (
+                      <ErrorBoundary key={index}>
+                        <MediaDisplay media={media} label={`Question Media ${index + 1}`} />
+                      </ErrorBoundary>
+                    ))}
+                  </div>
+                )}
 
                 <div className="space-y-4">
                   {(currentQuestion?.options || []).map((option, index) => {
@@ -903,8 +895,15 @@ const TestRunnerPage = () => {
                                 )
                               : 'No option text'}
                           </span>
+                          {/* Option Media */}
                           {isQuestionSubmitted && option?.media?.length > 0 && (
-                            <MediaDisplay media={option.media} label={`Option ${String.fromCharCode(65 + index)} Media`} />
+                            <div className="mt-2 flex flex-wrap gap-2">
+                              {option.media.map((media, mediaIndex) => (
+                                <ErrorBoundary key={mediaIndex}>
+                                  <MediaDisplay media={media} label={`Option ${String.fromCharCode(65 + index)} Media ${mediaIndex + 1}`} />
+                                </ErrorBoundary>
+                              ))}
+                            </div>
                           )}
                         </div>
                       </div>
@@ -992,29 +991,15 @@ const TestRunnerPage = () => {
               )}
               <div className="mb-4">
                 <h4 className="text-md font-medium mb-2">Explanation</h4>
-                <p className="text-gray-700">
-                  {currentQuestion?.explanation
-                    ? renderHighlightedText(currentQuestion.explanation, currentQuestion._id)
-                    : 'No explanation available.'}
-                </p>
-                {currentQuestion?.explanationMedia?.length > 0 && (
-                  <MediaDisplay media={currentQuestion.explanationMedia} label="Explanation Media" />
-                )}
+                {renderExplanation(currentQuestion?.explanation, currentQuestion?._id)}
               </div>
-              {(currentQuestion?.questionMedia?.length > 0 || currentQuestion?.options?.some(opt => opt.media?.length > 0)) && (
-                <div className="mt-4">
-                  <h4 className="text-md font-medium mb-2">Additional Media</h4>
-                  {currentQuestion?.questionMedia?.length > 0 && (
-                    <MediaDisplay media={currentQuestion.questionMedia} label="Question Media" />
-                  )}
-                  {currentQuestion?.options?.map((option, index) => (
-                    option.media?.length > 0 && (
-                      <MediaDisplay
-                        key={index}
-                        media={option.media}
-                        label={`Option ${String.fromCharCode(65 + index)} Media`}
-                      />
-                    )
+              {/* Explanation Media */}
+              {isQuestionSubmitted && currentQuestion?.explanationMedia?.length > 0 && (
+                <div className="mt-2 flex flex-wrap gap-2">
+                  {currentQuestion.explanationMedia.map((media, index) => (
+                    <ErrorBoundary key={index}>
+                      <MediaDisplay media={media} label={`Explanation Media ${index + 1}`} />
+                    </ErrorBoundary>
                   ))}
                 </div>
               )}

@@ -5,6 +5,7 @@ import { X } from 'lucide-react';
 const BACKEND_BASE_URL = axios.defaults.baseURL;
 
 export default function MediaDisplay({ media, label }) {
+  const isWebUrl = media.mimetype === 'text/url' || media.url;
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [position, setPosition] = useState({ x: 0, y: 0 });
   const [size, setSize] = useState({ width: 800, height: 600 });
@@ -18,11 +19,34 @@ export default function MediaDisplay({ media, label }) {
 
   if (!media || (!media.path && !media.url)) return null;
 
-  const url = media.path ? `${BACKEND_BASE_URL}${media.path}` : media.url;
+  function resolveMediaUrl(media) {
+  const isWebUrl = media.mimetype === 'text/url' || !!media.url;
+
+  const rawUrl = media.url || media.path;
+  if (!rawUrl) return null;
+
+  // YouTube handling
+  const ytMatch = rawUrl.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/)([^&]+)/);
+  if (ytMatch) {
+    return `https://www.youtube.com/embed/${ytMatch[1]}`;
+  }
+
+  // If it's an external web URL (not hosted by backend), use as is
+  if (isWebUrl) {
+    return rawUrl;
+  }
+
+  // Else assume it's a media path on your backend
+  return `${BACKEND_BASE_URL}${media.path}`;
+}
+
+
+const url = resolveMediaUrl(media);
+
 
   const handleOpenModal = () => {
     setIsModalOpen(true);
-    setPosition({ x: window.innerWidth / 4, y: window.innerHeight / 4 });
+    setPosition({ x: window.innerWidth / 8, y: window.innerHeight / 8 });
     setSize({ width: 800, height: 600 });
     setError(null);
   };
@@ -62,12 +86,6 @@ export default function MediaDisplay({ media, label }) {
       const newWidth = Math.max(300, resizeStart.width + (e.clientX - dragStart.x));
       const newHeight = Math.max(200, resizeStart.height + (e.clientY - dragStart.y));
       setSize({ width: newWidth, height: newHeight });
-      const modal = modalRef.current;
-      if (modal) {
-        const maxX = window.innerWidth - newWidth;
-        const maxY = window.innerHeight - newHeight;
-        setPosition({ x: Math.max(0, Math.min(position.x, maxX)), y: Math.max(0, Math.min(position.y, maxY)) });
-      }
     }
   };
 
@@ -103,7 +121,30 @@ export default function MediaDisplay({ media, label }) {
       } else if (media.mimetype?.startsWith('video/')) {
         return <video controls src={url} style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }} onError={() => setError('Failed to load video')} />;
       } else if (media.mimetype === 'text/url' || media.url) {
-        return <iframe src={url} title={media.originalname || 'Web Content'} style={{ width: '100%', height: '100%', border: 'none' }} sandbox="allow-scripts allow-same-origin" onError={() => setError('Failed to load URL')} />;
+        return (
+          <div className="flex flex-col w-full h-full">
+            <iframe
+              src={url}
+              title={media.originalname || 'Web Content'}
+              style={{ width: '100%', flex: '1 1 auto', border: 'none' }}
+              sandbox="allow-scripts allow-same-origin"
+              onError={() => setError('This website cannot be embedded. Click the link below to open it.')}
+            />
+            <a
+              href={url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-blue-600 hover:underline text-sm p-2 mt-2"
+              aria-label={`Visit external URL: ${url}`}
+            >
+              {url}
+            </a>
+          </div>
+        );
+      } else if (media.mimetype?.startsWith('application/pdf')) {
+        return <embed src={url} type="application/pdf" style={{ width: '100%', height: '100%' }} onError={() => setError('Failed to load PDF')} />;
+      } else if (media.mimetype?.startsWith('application/msword') || media.mimetype?.startsWith('application/vnd.openxmlformats-officedocument')) {
+        return <a href={url} download className="text-blue-600 hover:underline">{media.originalname || 'Download Document'}</a>;
       } else {
         return <a href={url} download className="text-blue-600 hover:underline">{media.originalname || 'Download Media'}</a>;
       }
@@ -132,7 +173,9 @@ export default function MediaDisplay({ media, label }) {
               display: 'flex',
               flexDirection: 'column',
               alignItems: 'center',
-              transform: `translate(${position.x}px, ${position.y}px)`,
+              left: `${position.x}px`,
+              top: `${position.y}px`,
+              position: 'absolute',
             }}
             onMouseDown={handleMouseDown}
           >

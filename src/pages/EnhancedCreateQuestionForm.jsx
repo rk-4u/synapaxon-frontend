@@ -34,6 +34,11 @@ const EnhancedCreateQuestionForm = ({ onQuestionCreated = () => {} }) => {
   const [uploadSuccess, setUploadSuccess] = useState(false);
   const [uploadError, setUploadError] = useState('');
 
+  // Additional category/subject/topic states
+  const [additionalDetails, setAdditionalDetails] = useState([]);
+  const [showDetailModal, setShowDetailModal] = useState(false);
+  const [tempDetail, setTempDetail] = useState({ category: 'Basic Sciences', subject: '', topic: '' });
+
   const handleInputChange = (e) => {
     const { name, value } = e.target;
     setFormData({ ...formData, [name]: value });
@@ -312,6 +317,52 @@ const EnhancedCreateQuestionForm = ({ onQuestionCreated = () => {} }) => {
     setUploadError('');
   };
 
+  // Additional detail handlers
+  const handleAddDetail = () => {
+    if (!tempDetail.subject || !tempDetail.topic) {
+      setErrorMessage('Please select a subject and topic for the additional detail');
+      setTimeout(() => setErrorMessage(''), 3000);
+      return;
+    }
+
+    // Check for duplicate combinations
+    const isDuplicate = additionalDetails.some(
+      detail => 
+        detail.category === tempDetail.category &&
+        detail.subject === tempDetail.subject &&
+        detail.topic === tempDetail.topic
+    ) || (
+      tempDetail.category === formData.category &&
+      tempDetail.subject === formData.subject &&
+      tempDetail.topic === formData.topic
+    );
+
+    if (isDuplicate) {
+      setErrorMessage('This category/subject/topic combination is already added');
+      setTimeout(() => setErrorMessage(''), 3000);
+      return;
+    }
+
+    setAdditionalDetails([...additionalDetails, { ...tempDetail }]);
+    setTempDetail({ category: 'Basic Sciences', subject: '', topic: '' });
+    setShowDetailModal(false);
+  };
+
+  const handleRemoveDetail = (index) => {
+    const updatedDetails = [...additionalDetails];
+    updatedDetails.splice(index, 1);
+    setAdditionalDetails(updatedDetails);
+  };
+
+  const handleTempDetailChange = (field, value) => {
+    setTempDetail(prev => ({ ...prev, [field]: value }));
+    if (field === 'category') {
+      setTempDetail(prev => ({ ...prev, subject: '', topic: '' }));
+    } else if (field === 'subject') {
+      setTempDetail(prev => ({ ...prev, topic: '' }));
+    }
+  };
+
   const validateMediaObject = (media) => {
     return (
       media &&
@@ -343,8 +394,8 @@ const EnhancedCreateQuestionForm = ({ onQuestionCreated = () => {} }) => {
       return;
     }
     
-    if (!formData.subject) {
-      setErrorMessage('Please select a subject');
+    if (!formData.subject || !formData.topic) {
+      setErrorMessage('Please select a subject and topic');
       return;
     }
 
@@ -375,8 +426,8 @@ const EnhancedCreateQuestionForm = ({ onQuestionCreated = () => {} }) => {
         return;
       }
       
-      // Create submission data structure
-      const submissionData = {
+      // Base submission data
+      const baseSubmissionData = {
         questionText: formData.questionText,
         explanation: formData.explanation,
         options: formData.options.map((text, index) => ({
@@ -385,27 +436,43 @@ const EnhancedCreateQuestionForm = ({ onQuestionCreated = () => {} }) => {
         })),
         correctAnswer: formData.correctAnswer,
         difficulty: formData.difficulty,
-        category: formData.category,
-        subject: formData.subject,
-        topic: formData.topic,
         tags: formData.tags,
         questionMedia: formData.questionMedia,
         explanationMedia: formData.explanationMedia,
         sourceUrl: formData.sourceUrl
       };
-      
-      const response = await axios.post(
-        '/api/questions',
-        submissionData,
+
+      // Create submission payloads
+      const submissionPayloads = [
         {
-          headers: {
-            Authorization: `Bearer ${token}`
-          }
-        }
+          ...baseSubmissionData,
+          category: formData.category,
+          subject: formData.subject,
+          topic: formData.topic
+        },
+        ...additionalDetails.map(detail => ({
+          ...baseSubmissionData,
+          category: detail.category,
+          subject: detail.subject,
+          topic: detail.topic
+        }))
+      ];
+
+      // Submit all payloads concurrently
+      const responses = await Promise.all(
+        submissionPayloads.map(payload =>
+          axios.post('/api/questions', payload, {
+            headers: {
+              Authorization: `Bearer ${token}`
+            }
+          })
+        )
       );
-      
-      if (response.data.success) {
-        setSuccessMessage('Question created successfully!');
+
+      // Check if all submissions were successful
+      const allSuccessful = responses.every(response => response.data.success);
+      if (allSuccessful) {
+        setSuccessMessage(`${submissionPayloads.length} question(s) created successfully!`);
         // Reset form
         setFormData({
           questionText: '',
@@ -422,18 +489,22 @@ const EnhancedCreateQuestionForm = ({ onQuestionCreated = () => {} }) => {
           optionMedia: Array(2).fill([]),
           sourceUrl: ''
         });
+        setAdditionalDetails([]);
         
-        onQuestionCreated(response.data.data);
+        onQuestionCreated(responses.map(response => response.data.data));
         
         setTimeout(() => {
           setSuccessMessage('');
         }, 3000);
       } else {
-        setErrorMessage(response.data.message || 'Failed to create question');
+        const failedMessages = responses
+          .filter(response => !response.data.success)
+          .map(response => response.data.message || 'Failed to create question');
+        setErrorMessage(`Failed to create some questions: ${failedMessages.join(', ')}`);
       }
     } catch (error) {
-      console.error('Error creating question:', error);
-      setErrorMessage(error.response?.data?.message || 'An error occurred while creating the question');
+      console.error('Error creating questions:', error);
+      setErrorMessage(error.response?.data?.message || 'An error occurred while creating the questions');
     } finally {
       setIsSubmitting(false);
     }
@@ -680,6 +751,101 @@ const EnhancedCreateQuestionForm = ({ onQuestionCreated = () => {} }) => {
         </div>
       )}
       
+      {/* Additional Detail Modal */}
+      {showDetailModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 w-full max-w-md">
+            <h3 className="text-lg font-semibold mb-4">Add Additional Category/Subject/Topic</h3>
+            
+            {/* Category Selection */}
+            <div className="mb-4">
+              <label className="block text-gray-700 font-medium mb-2">Category*</label>
+              <div className="flex gap-2">
+                {['Basic Sciences', 'Organ Systems', 'Clinical Specialties'].map(cat => (
+                  <button
+                    type="button"
+                    key={cat}
+                    onClick={() => handleTempDetailChange('category', cat)}
+                    className={`flex-1 py-2 text-center font-medium rounded ${
+                      tempDetail.category === cat
+                        ? 'bg-blue-500 text-white'
+                        : 'bg-blue-100 text-blue-800 hover:bg-blue-200'
+                    }`}
+                  >
+                    {cat}
+                  </button>
+                ))}
+              </div>
+            </div>
+            
+            {/* Subject Selection */}
+            <div className="mb-4">
+              <label className="block text-gray-700 font-medium mb-2">Subject*</label>
+              <div className="grid grid-cols-2 gap-2">
+                {subjectsByCategory[tempDetail.category]?.map(subject => (
+                  <button
+                    type="button"
+                    key={subject}
+                    onClick={() => handleTempDetailChange('subject', subject)}
+                    className={`py-2 px-3 rounded text-sm font-medium border ${
+                      tempDetail.subject === subject
+                        ? 'bg-blue-500 text-white border-blue-500'
+                        : 'bg-blue-50 text-blue-700 border-blue-200 hover:bg-blue-100'
+                    }`}
+                  >
+                    {subject}
+                  </button>
+                ))}
+              </div>
+            </div>
+            
+            {/* Topic Selection */}
+            {tempDetail.subject && (
+              <div className="mb-4">
+                <label className="block text-gray-700 font-medium mb-2">Topic*</label>
+                <div className="flex flex-wrap gap-2">
+                  {topicsBySubject[tempDetail.subject]?.map(topic => (
+                    <button
+                      type="button"
+                      key={topic}
+                      onClick={() => handleTempDetailChange('topic', topic)}
+                      className={`py-2 px-4 rounded text-sm font-medium border ${
+                        tempDetail.topic === topic
+                          ? 'bg-green-500 text-white border-green-500'
+                          : 'bg-green-50 text-green-700 border-green-200 hover:bg-green-100'
+                      }`}
+                    >
+                      {topic}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+            
+            {errorMessage && (
+              <div className="mb-4 text-sm text-red-600">{errorMessage}</div>
+            )}
+            
+            <div className="flex justify-end space-x-3">
+              <button
+                type="button"
+                onClick={() => setShowDetailModal(false)}
+                className="px-4 py-2 border border-gray-300 rounded text-gray-700 hover:bg-gray-100"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleAddDetail}
+                className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+              >
+                Add
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      
       <form onSubmit={handleSubmit}>
         {/* Question Text */}
         <div className="mb-6">
@@ -766,6 +932,7 @@ const EnhancedCreateQuestionForm = ({ onQuestionCreated = () => {} }) => {
           />
           {renderMediaButton('explanation', formData.explanationMedia)}
         </div>
+
         
         {/* Difficulty */}
         <div className="mb-6">
@@ -870,6 +1037,34 @@ const EnhancedCreateQuestionForm = ({ onQuestionCreated = () => {} }) => {
                 </button>
               ))}
             </div>
+            <button
+              type="button"
+              onClick={() => setShowDetailModal(true)}
+              className="mt-4 flex items-center text-sm text-blue-600 hover:text-blue-800"
+            >
+              <Plus size={14} className="mr-1" />
+              Add More Category/Subject/Topic
+            </button>
+            {additionalDetails.length > 0 && (
+              <div className="mt-4 space-y-2">
+                <h4 className="text-sm font-medium text-gray-700">Additional Classifications:</h4>
+                {additionalDetails.map((detail, index) => (
+                  <div key={index} className="flex items-center p-2 bg-blue-50 border border-blue-200 rounded-md text-sm">
+                    <span className="flex-1">
+                      {detail.category} / {detail.subject} / {detail.topic}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => handleRemoveDetail(index)}
+                      className="ml-2 p-1 text-gray-500 hover:text-red-500"
+                      title="Remove classification"
+                    >
+                      <X size={16} />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         )}
         
@@ -900,7 +1095,7 @@ const EnhancedCreateQuestionForm = ({ onQuestionCreated = () => {} }) => {
                 : 'bg-blue-600 hover:bg-blue-700'
             } text-white font-medium`}
           >
-            {isSubmitting ? 'Creating...' : 'Create Question'}
+            {isSubmitting ? 'Creating...' : `Create Question${additionalDetails.length > 0 ? 's' : ''}`}
           </button>
         </div>
       </form>

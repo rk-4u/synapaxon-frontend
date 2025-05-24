@@ -1,6 +1,30 @@
+import React from 'react';
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { ChevronDown, ChevronUp, Image as ImageIcon, Video } from 'lucide-react';
+import MediaDisplay from './MediaDisplay';
+
+const ErrorBoundary = ({ children }) => {
+  const [hasError, setHasError] = useState(false);
+
+  useEffect(() => {
+    setHasError(false);
+  }, [children]);
+
+  if (hasError) {
+    return <p className="text-red-500 text-sm">Error loading media. Please try again.</p>;
+  }
+
+  return (
+    <React.Fragment>
+      {React.Children.map(children, (child) =>
+        React.cloneElement(child, {
+          onError: () => setHasError(true),
+        })
+      )}
+    </React.Fragment>
+  );
+};
 
 const TestDetailPage = () => {
   const { testId } = useParams();
@@ -27,7 +51,7 @@ const TestDetailPage = () => {
         }
 
         // Fetch test session details
-        const sessionResponse = await fetch(`http://localhost:8000/api/tests/${testId}`, {
+        const sessionResponse = await fetch(`https://synapaxon-backend.onrender.com/api/tests/${testId}`, {
           headers: {
             'Authorization': `Bearer ${token}`,
             'Content-Type': 'application/json',
@@ -49,7 +73,7 @@ const TestDetailPage = () => {
           query += `&filter=${filter}`;
         }
 
-        const questionsResponse = await fetch(`http://localhost:8000/api/student-questions/history/${testId}?${query}`, {
+        const questionsResponse = await fetch(`https://synapaxon-backend.onrender.com/api/student-questions/history/${testId}?${query}`, {
           headers: {
             'Authorization': `Bearer ${token}`,
             'Content-Type': 'application/json',
@@ -84,7 +108,7 @@ const TestDetailPage = () => {
         });
 
         // Fetch analytics data
-        const allQuestionsResponse = await fetch(`http://localhost:8000/api/student-questions/history/${testId}`, {
+        const allQuestionsResponse = await fetch(`https://synapaxon-backend.onrender.com/api/student-questions/history/${testId}`, {
           headers: {
             'Authorization': `Bearer ${token}`,
             'Content-Type': 'application/json',
@@ -141,7 +165,7 @@ const TestDetailPage = () => {
         // Fetch additional question details (explanations and media)
         const questionDetailsPromises = questionsData.data.map(async (question) => {
           try {
-            const response = await fetch(`http://localhost:8000/api/questions/${question.question?._id}`, {
+            const response = await fetch(`https://synapaxon-backend.onrender.com/api/questions/${question.question?._id}`, {
               headers: {
                 'Authorization': `Bearer ${token}`,
                 'Content-Type': 'application/json',
@@ -153,10 +177,10 @@ const TestDetailPage = () => {
                 return { [question._id]: questionData.data };
               }
             }
-            return { [question._id]: { explanation: 'No explanation available', media: null } };
+            return { [question._id]: { explanation: 'No explanation available', questionMedia: [], explanationMedia: [], options: [] } };
           } catch (err) {
             console.error(`Error fetching details for question ${question._id}:`, err);
-            return { [question._id]: { explanation: 'Error fetching explanation', media: null } };
+            return { [question._id]: { explanation: 'Error fetching explanation', questionMedia: [], explanationMedia: [], options: [] } };
           }
         });
 
@@ -213,70 +237,6 @@ const TestDetailPage = () => {
     const minutes = Math.floor(diffMs / 60000);
     const seconds = Math.floor((diffMs % 60000) / 1000);
     return `${minutes}m ${seconds}s`;
-  };
-
-  const renderMedia = (media) => {
-    if (!media) return null;
-    const mediaItems = Array.isArray(media) ? media : [media];
-    return mediaItems.map((item, index) => {
-      if (item.mimetype === 'text/url') {
-        return (
-          <div key={index} className="mt-4">
-            <div className="flex items-center mb-2">
-              <ImageIcon className="w-5 h-5 text-indigo-600 mr-2" />
-              <span className="text-sm font-medium text-gray-700">URL Media</span>
-            </div>
-            <a
-              href={item.path}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-blue-600 hover:underline"
-            >
-              {item.originalname || 'View URL'}
-            </a>
-          </div>
-        );
-      } else if (item.mimetype?.startsWith('image/')) {
-        return (
-          <div key={index} className="mt-4">
-            <div className="flex items-center mb-2">
-              <ImageIcon className="w-5 h-5 text-indigo-600 mr-2" />
-              <span className="text-sm font-medium text-gray-700">Image</span>
-            </div>
-            <img
-              src={item.path}
-              alt={item.originalname || 'Question media'}
-              className="max-w-full h-auto rounded-lg border border-gray-200"
-              onError={(e) => {
-                e.target.alt = 'Failed to load image';
-                e.target.className = 'text-red-600';
-              }}
-            />
-          </div>
-        );
-      } else if (item.mimetype?.startsWith('video/')) {
-        return (
-          <div key={index} className="mt-4">
-            <div className="flex items-center mb-2">
-              <Video className="w-5 h-5 text-indigo-600 mr-2" />
-              <span className="text-sm font-medium text-gray-700">Video</span>
-            </div>
-            <video
-              controls
-              src={item.path}
-              className="max-w-full h-auto rounded-lg border border-gray-200"
-              onError={(e) => {
-                e.target.nextSibling.textContent = 'Failed to load video';
-                e.target.nextSibling.className = 'text-red-600';
-              }}
-            >
-              <p className="text-red-600">Your browser does not support the video tag.</p>
-            </video>
-          </div>
-        );
-      }
-      return null;
-    });
   };
 
   if (loading) {
@@ -555,9 +515,21 @@ const TestDetailPage = () => {
                         onClick={() => toggleQuestion(question._id)}
                         className="w-full p-8 flex justify-between items-center text-left hover:bg-gray-50 transition-colors"
                       >
-                        <h3 className="text-xl font-semibold text-gray-900">
-                          Q{qIndex + 1}: {question.question?.questionText || 'Question not available'}
-                        </h3>
+                        <div>
+                          <h3 className="text-xl font-semibold text-gray-900">
+                            Q{qIndex + 1}: {question.question?.questionText || 'Question not available'}
+                          </h3>
+                          {/* Question Media */}
+                          {questionDetails[question._id]?.questionMedia?.length > 0 && (
+                            <div className="mt-2 flex flex-wrap gap-2">
+                              {questionDetails[question._id].questionMedia.map((media, index) => (
+                                <ErrorBoundary key={index}>
+                                  <MediaDisplay media={media} label={`Question Media ${index + 1}`} />
+                                </ErrorBoundary>
+                              ))}
+                            </div>
+                          )}
+                        </div>
                         {expandedQuestions[question._id] ? (
                           <ChevronUp className="w-6 h-6 text-gray-600" />
                         ) : (
@@ -613,18 +585,63 @@ const TestDetailPage = () => {
                                     <div className="w-6 h-6"></div>
                                   )}
                                 </div>
-                                <p className="text-base text-gray-700">
-                                  {String.fromCharCode(65 + oIndex)}. {option?.text || 'Option not available'}
-                                </p>
+                                <div className="flex-1">
+                                  <p className="text-base text-gray-700">
+                                    {String.fromCharCode(65 + oIndex)}. {option?.text || 'Option not available'}
+                                  </p>
+                                  {/* Option Media */}
+                                  {questionDetails[question._id]?.options?.[oIndex]?.media?.length > 0 && (
+                                    <div className="mt-2 flex flex-wrap gap-2">
+                                      {questionDetails[question._id].options[oIndex].media.map((media, mediaIndex) => (
+                                        <ErrorBoundary key={mediaIndex}>
+                                          <MediaDisplay media={media} label={`Option ${String.fromCharCode(65 + oIndex)} Media ${mediaIndex + 1}`} />
+                                        </ErrorBoundary>
+                                      ))}
+                                    </div>
+                                  )}
+                                </div>
                               </div>
                             ))}
                           </div>
-                          {renderMedia(questionDetails[question._id]?.questionMedia)}
-                          {renderMedia(questionDetails[question._id]?.explanationMedia)}
+
                           <div className="mt-6">
-                            <h4 className="text-base font-semibold text-gray-900 mb-2">Explanation</h4>
-                            <p className="text-base text-gray-700">{questionDetails[question._id]?.explanation || 'No explanation available'}</p>
-                          </div>
+  <h4 className="text-base font-semibold text-gray-900 mb-2">Explanation</h4>
+
+  {(() => {
+    const explanation = questionDetails[question._id]?.explanation || '';
+    if (!explanation) {
+      return <p className="text-base text-gray-700">No explanation available</p>;
+    }
+    const segments = explanation
+      .split('.')
+      .map(s => s.trim())
+      .filter(s => s.length > 0);
+
+    if (segments.length <= 1) {
+      return <p className="text-base text-gray-700">{explanation}</p>;
+    } else {
+      return (
+        <ul className="list-disc pl-5 space-y-2 text-gray-700 text-base">
+          {segments.map((segment, idx) => (
+            <li key={idx}>{segment}.</li>
+          ))}
+        </ul>
+      );
+    }
+  })()}
+
+  {/* Explanation Media */}
+  {questionDetails[question._id]?.explanationMedia?.length > 0 && (
+    <div className="mt-2 flex flex-wrap gap-2">
+      {questionDetails[question._id].explanationMedia.map((media, index) => (
+        <ErrorBoundary key={index}>
+          <MediaDisplay media={media} label={`Explanation Media ${index + 1}`} />
+        </ErrorBoundary>
+      ))}
+    </div>
+  )}
+</div>
+
                           <div className="text-sm text-gray-500 mt-4">
                             <span>Category: {question.category || 'N/A'}</span>
                             <span className="mx-2">•</span>

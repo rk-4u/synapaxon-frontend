@@ -538,21 +538,27 @@ export default function QuestionFilterPage() {
         <div className="mb-8">
           <h2 className="text-xl font-bold text-gray-800 mb-6">Test Configuration</h2>
           <div className="flex flex-col md:flex-row justify-between gap-8">
-            <div className="flex-1">
-              <h3 className="font-medium text-gray-700 mb-4">Timer</h3>
-              <div className="flex items-center">
-                <input
-                  type="checkbox"
-                  checked={useTimer}
-                  onChange={() => setUseTimer(!useTimer)}
-                  className="mr-2 h-4 w-4"
-                  id="timerCheckbox"
-                />
-                <label htmlFor="timerCheckbox" className="cursor-pointer">
-                  Use 90 second timer
-                </label>
-              </div>
-            </div>
+            <div className="flex items-center">
+  <button
+    onClick={() => setUseTimer(!useTimer)}
+    className={`ml-0 relative inline-block w-12 h-6 rounded-full transition-all duration-300 bg-gradient-to-r bg-[length:200%_100%] ${
+      useTimer
+        ? 'from-green-400 to-green-700 bg-right'
+        : 'from-gray-300 to-gray-500 bg-left'
+    }`}
+    aria-label="Toggle timer"
+  >
+    <span
+      className={`absolute top-0.5 w-5 h-5 rounded-full transition-all duration-300 bg-white shadow-md ${
+        useTimer ? 'left-[calc(100%-1.25rem-0.125rem)]' : 'left-0.5'
+      }`}
+    ></span>
+  </button>
+  <label htmlFor="timerCheckbox" className="ml-3 cursor-pointer">
+    Use 90 second timer
+  </label>
+</div>
+
 
             <div className="flex-1">
               <h3 className="font-medium text-gray-700 mb-4">Number of Items</h3>
