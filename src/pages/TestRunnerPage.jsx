@@ -2,7 +2,71 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import axios from '../api/axiosConfig';
 import { Menu, Clock, Flag, Check, ChevronLeft, ChevronRight, X, PlayCircle, PauseCircle } from 'lucide-react';
-import { MediaDisplay } from './AnswerList';
+
+// MediaDisplay Component to handle arrays and URL media
+const MediaDisplay = ({ media, label }) => {
+  // Normalize media to array
+  const mediaItems = Array.isArray(media) ? media : media ? [media] : [];
+
+  if (!mediaItems.length) return null;
+
+  return (
+    <div className="mt-2">
+      <span className="text-sm text-gray-600">{label}:</span>
+      <div className="flex flex-wrap gap-2 mt-1">
+        {mediaItems.map((item, index) => {
+          if (!item?.mimetype || !item?.path) return null;
+
+          if (item.mimetype === 'text/url') {
+            // Render URL as clickable link
+            return (
+              <a
+                key={index}
+                href={item.path}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-blue-600 hover:underline text-sm"
+              >
+                {item.originalname || 'View URL'}
+              </a>
+            );
+          } else if (item.mimetype.startsWith('image/')) {
+            return (
+              <img
+                key={index}
+                src={item.path}
+                alt={item.originalname || 'Media'}
+                className="max-w-[100px] max-h-[100px] object-contain"
+              />
+            );
+          } else if (item.mimetype.startsWith('video/')) {
+            return (
+              <video
+                key={index}
+                src={item.path}
+                controls
+                className="max-w-[200px] max-h-[200px]"
+              >
+                Your browser does not support the video tag.
+              </video>
+            );
+          } else {
+            return (
+              <a
+                key={index}
+                href={item.path}
+                download
+                className="text-blue-600 hover:underline text-sm"
+              >
+                {item.originalname || 'Download Media'}
+              </a>
+            );
+          }
+        })}
+      </div>
+    </div>
+  );
+};
 
 const TestRunnerPage = () => {
   const navigate = useNavigate();
@@ -267,8 +331,8 @@ const TestRunnerPage = () => {
             updated[currentQuestionIndex] = {
               ...currentQuestion,
               explanation: questionData.explanation || 'No explanation available.',
-              explanationMedia: questionData.explanationMedia || null,
-              questionMedia: questionData.questionMedia || null,
+              explanationMedia: questionData.explanationMedia || [],
+              questionMedia: questionData.questionMedia || [],
               options: questionData.options || currentQuestion.options,
               correctAnswer: questionData.correctAnswer ?? currentQuestion.correctAnswer,
             };
@@ -347,8 +411,8 @@ const TestRunnerPage = () => {
                 prev[index] = {
                   ...prev[index],
                   explanation: questionData.explanation || 'No explanation available.',
-                  explanationMedia: questionData.explanationMedia || null,
-                  questionMedia: questionData.questionMedia || null,
+                  explanationMedia: questionData.explanationMedia || [],
+                  questionMedia: questionData.questionMedia || [],
                   options: questionData.options || prev[index].options,
                   correctAnswer: questionData.correctAnswer ?? prev[index].correctAnswer,
                 };
@@ -797,11 +861,10 @@ const TestRunnerPage = () => {
                           currentQuestion._id
                         )
                       : 'No question text'}
-                    {isQuestionSubmitted && currentQuestion?.questionMedia && (
-                      <MediaDisplay media={currentQuestion.questionMedia} label="View Question Media" />
+                    {isQuestionSubmitted && currentQuestion?.questionMedia?.length > 0 && (
+                      <MediaDisplay media={currentQuestion.questionMedia} label="Question Media" />
                     )}
                   </h2>
-                  
                 </div>
 
                 <div className="space-y-4">
@@ -820,28 +883,30 @@ const TestRunnerPage = () => {
                         >
                           {String.fromCharCode(65 + index)}
                         </button>
-                        <span
-                          style={{ textDecoration: isStruck ? 'line-through' : 'none' }}
-                          onContextMenu={(e) => {
-                            e.preventDefault();
-                            toggleStrikeThrough(currentQuestion._id, index);
-                          }}
-                          onClick={(e) => {
-                            if (e.button === 0) {
+                        <div className="flex flex-col">
+                          <span
+                            style={{ textDecoration: isStruck ? 'line-through' : 'none' }}
+                            onContextMenu={(e) => {
+                              e.preventDefault();
                               toggleStrikeThrough(currentQuestion._id, index);
-                            }
-                          }}
-                        >
-                          {option?.text
-                            ? renderHighlightedText(
-                                typeof option === 'object' ? option.text : option,
-                                currentQuestion._id
-                              )
-                            : 'No option text'}
-                          {isQuestionSubmitted && option?.media && (
-                            <MediaDisplay media={option.media} label={`View Option ${String.fromCharCode(65 + index)} Media`} />
+                            }}
+                            onClick={(e) => {
+                              if (e.button === 0) {
+                                toggleStrikeThrough(currentQuestion._id, index);
+                              }
+                            }}
+                          >
+                            {option?.text
+                              ? renderHighlightedText(
+                                  typeof option === 'object' ? option.text : option,
+                                  currentQuestion._id
+                                )
+                              : 'No option text'}
+                          </span>
+                          {isQuestionSubmitted && option?.media?.length > 0 && (
+                            <MediaDisplay media={option.media} label={`Option ${String.fromCharCode(65 + index)} Media`} />
                           )}
-                        </span>
+                        </div>
                       </div>
                     );
                   })}
@@ -911,7 +976,7 @@ const TestRunnerPage = () => {
         <div className="w-[37.5%] py-8 pl-4">
           {isQuestionSubmitted ? (
             <div className="bg-white rounded-lg shadow-lg p-6" onMouseUp={handleTextSelection}>
-              <h3 className="text-lg font-semibold mb-4">Explanation</h3>
+              <h3 className="text-lg font-semibold mb-4">Feedback and Explanation</h3>
               {submissionResult && (
                 <p className={`mb-4 text-sm font-medium ${submissionResult.isCorrect ? 'text-green-600' : 'text-red-600'}`}>
                   Your answer is {submissionResult.isCorrect ? 'correct' : 'incorrect'}.
@@ -925,13 +990,33 @@ const TestRunnerPage = () => {
                   )}
                 </p>
               )}
-              <p className="text-gray-700">
-                {currentQuestion?.explanation
-                  ? renderHighlightedText(currentQuestion.explanation, currentQuestion._id)
-                  : 'No explanation available.'}
-              </p>
-              {currentQuestion?.explanationMedia && (
-                <MediaDisplay media={currentQuestion.explanationMedia} label="View Explanation Media" />
+              <div className="mb-4">
+                <h4 className="text-md font-medium mb-2">Explanation</h4>
+                <p className="text-gray-700">
+                  {currentQuestion?.explanation
+                    ? renderHighlightedText(currentQuestion.explanation, currentQuestion._id)
+                    : 'No explanation available.'}
+                </p>
+                {currentQuestion?.explanationMedia?.length > 0 && (
+                  <MediaDisplay media={currentQuestion.explanationMedia} label="Explanation Media" />
+                )}
+              </div>
+              {(currentQuestion?.questionMedia?.length > 0 || currentQuestion?.options?.some(opt => opt.media?.length > 0)) && (
+                <div className="mt-4">
+                  <h4 className="text-md font-medium mb-2">Additional Media</h4>
+                  {currentQuestion?.questionMedia?.length > 0 && (
+                    <MediaDisplay media={currentQuestion.questionMedia} label="Question Media" />
+                  )}
+                  {currentQuestion?.options?.map((option, index) => (
+                    option.media?.length > 0 && (
+                      <MediaDisplay
+                        key={index}
+                        media={option.media}
+                        label={`Option ${String.fromCharCode(65 + index)} Media`}
+                      />
+                    )
+                  ))}
+                </div>
               )}
             </div>
           ) : (

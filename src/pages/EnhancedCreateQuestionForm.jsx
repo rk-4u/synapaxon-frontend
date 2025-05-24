@@ -1,7 +1,6 @@
-// EnhancedCreateQuestionForm.jsx
 import React, { useState } from 'react';
-import { X, PlusCircle, Upload, Image, File, CheckCircle, Plus, Trash2, Paperclip } from 'lucide-react';
-import axios from '../api/axiosConfig'
+import { X, PlusCircle, Upload, Image, File, CheckCircle, Plus, Trash2, Paperclip, Link } from 'lucide-react';
+import axios from '../api/axiosConfig';
 import { subjectsByCategory, topicsBySubject } from '../data/questionData';
 
 const EnhancedCreateQuestionForm = ({ onQuestionCreated = () => {} }) => {
@@ -15,9 +14,9 @@ const EnhancedCreateQuestionForm = ({ onQuestionCreated = () => {} }) => {
     subject: '',
     topic: '',
     tags: [],
-    questionMedia: null,
-    explanationMedia: null,
-    optionMedia: Array(2).fill(null), // Start with 2 null media entries
+    questionMedia: [],
+    explanationMedia: [],
+    optionMedia: Array(2).fill([]),
     sourceUrl: ''
   });
 
@@ -27,12 +26,14 @@ const EnhancedCreateQuestionForm = ({ onQuestionCreated = () => {} }) => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   
   // Media upload states
-  const [uploadingFor, setUploadingFor] = useState(null); // 'question', 'explanation', or index for options
-  const [uploadedFile, setUploadedFile] = useState(null);
+  const [uploadingFor, setUploadingFor] = useState(null);
+  const [uploadedFiles, setUploadedFiles] = useState([]);
+  const [urlInput, setUrlInput] = useState('');
+  const [mediaType, setMediaType] = useState('file');
   const [isUploading, setIsUploading] = useState(false);
   const [uploadSuccess, setUploadSuccess] = useState(false);
   const [uploadError, setUploadError] = useState('');
-  
+
   const handleInputChange = (e) => {
     const { name, value } = e.target;
     setFormData({ ...formData, [name]: value });
@@ -53,8 +54,8 @@ const EnhancedCreateQuestionForm = ({ onQuestionCreated = () => {} }) => {
     setFormData({ 
       ...formData, 
       category,
-      subject: '',  // Reset subject when category changes
-      topic: ''     // Reset topic when category changes
+      subject: '',
+      topic: ''
     });
   };
 
@@ -63,7 +64,7 @@ const EnhancedCreateQuestionForm = ({ onQuestionCreated = () => {} }) => {
     setFormData({ 
       ...formData, 
       subject,
-      topic: ''  // Reset topic when subject changes
+      topic: ''
     });
   };
 
@@ -71,7 +72,7 @@ const EnhancedCreateQuestionForm = ({ onQuestionCreated = () => {} }) => {
     setFormData({
       ...formData,
       options: [...formData.options, ''],
-      optionMedia: [...formData.optionMedia, null] // Add null media entry for new option
+      optionMedia: [...formData.optionMedia, []]
     });
   };
 
@@ -85,11 +86,9 @@ const EnhancedCreateQuestionForm = ({ onQuestionCreated = () => {} }) => {
     const updatedOptions = [...formData.options];
     updatedOptions.splice(index, 1);
     
-    // Remove option media
     const updatedOptionMedia = [...formData.optionMedia];
     updatedOptionMedia.splice(index, 1);
     
-    // Update correctAnswer if needed
     let newCorrectAnswer = formData.correctAnswer;
     if (formData.correctAnswer === index) {
       newCorrectAnswer = null;
@@ -130,25 +129,80 @@ const EnhancedCreateQuestionForm = ({ onQuestionCreated = () => {} }) => {
   };
 
   const handleFileChange = (e) => {
-    if (e.target.files && e.target.files[0]) {
-      const file = e.target.files[0];
-      setUploadedFile(file);
+    if (e.target.files && e.target.files.length > 0) {
+      const files = Array.from(e.target.files);
+      setUploadedFiles(files);
       setUploadSuccess(false);
       setUploadError('');
     }
   };
 
   const startMediaUpload = (target) => {
-    // target can be 'question', 'explanation', or a number for option index
     setUploadingFor(target);
-    setUploadedFile(null);
+    setUploadedFiles([]);
+    setUrlInput('');
+    setMediaType('file');
     setUploadSuccess(false);
     setUploadError('');
   };
 
+  const validateUrl = (url) => {
+    try {
+      new URL(url);
+      return true;
+    } catch {
+      return false;
+    }
+  };
+
+  const handleAddUrl = () => {
+    if (!urlInput.trim()) {
+      setUploadError('Please enter a URL');
+      return;
+    }
+    if (!validateUrl(urlInput.trim())) {
+      setUploadError('Please enter a valid URL (e.g., https://example.com)');
+      return;
+    }
+
+    const url = urlInput.trim();
+    const filename = url.split('/').pop() || `url-${Date.now()}`; // Ensure non-empty filename
+    const mediaObject = {
+      type: 'url',
+      path: url,
+      filename: filename,
+      originalname: filename,
+      mimetype: 'text/url',
+      size: 0
+    };
+
+    // Update the appropriate media field
+    if (uploadingFor === 'question') {
+      setFormData({
+        ...formData,
+        questionMedia: [...formData.questionMedia, mediaObject]
+      });
+    } else if (uploadingFor === 'explanation') {
+      setFormData({
+        ...formData,
+        explanationMedia: [...formData.explanationMedia, mediaObject]
+      });
+    } else if (typeof uploadingFor === 'number') {
+      const updatedOptionMedia = [...formData.optionMedia];
+      updatedOptionMedia[uploadingFor] = [
+        ...updatedOptionMedia[uploadingFor],
+        mediaObject
+      ];
+      setFormData({ ...formData, optionMedia: updatedOptionMedia });
+    }
+
+    setUploadSuccess(true);
+    setUrlInput('');
+  };
+
   const handleUploadMedia = async () => {
-    if (!uploadedFile) {
-      setUploadError('Please select a file to upload');
+    if (!uploadedFiles.length) {
+      setUploadError('Please select at least one file to upload');
       return;
     }
 
@@ -165,61 +219,85 @@ const EnhancedCreateQuestionForm = ({ onQuestionCreated = () => {} }) => {
       }
       
       const formDataObj = new FormData();
-      formDataObj.append('media', uploadedFile);
+      uploadedFiles.forEach(file => formDataObj.append('media', file));
       
       const response = await axios.post(
-        '/api/uploads',
+        '/api/uploads/multiple',
         formDataObj,
-        );
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            'Content-Type': 'multipart/form-data'
+          }
+        }
+      );
       
       if (response.data.success) {
         setUploadSuccess(true);
         
-        const mediaObject = {
-          type: response.data.data.mimetype.split('/')[0], // Extract type (image, video, etc.)
-          path: response.data.data.path,
-          filename: response.data.data.filename,
-          originalname: response.data.data.originalname,
-          mimetype: response.data.data.mimetype
-        };
+        const mediaObjects = response.data.data.map(file => {
+          // Ensure all required fields are present
+          if (!file.filename || !file.originalname || !file.mimetype || !file.size || !file.path) {
+            throw new Error('Invalid media object from server');
+          }
+          return {
+            type: file.mimetype.split('/')[0],
+            path: file.path,
+            filename: file.filename,
+            originalname: file.originalname,
+            mimetype: file.mimetype,
+            size: file.size
+          };
+        });
         
-        // Update the appropriate media field based on uploadingFor
+        // Update the appropriate media field
         if (uploadingFor === 'question') {
-          setFormData({...formData, questionMedia: mediaObject});
+          setFormData({
+            ...formData,
+            questionMedia: [...formData.questionMedia, ...mediaObjects]
+          });
         } else if (uploadingFor === 'explanation') {
-          setFormData({...formData, explanationMedia: mediaObject});
+          setFormData({
+            ...formData,
+            explanationMedia: [...formData.explanationMedia, ...mediaObjects]
+          });
         } else if (typeof uploadingFor === 'number') {
-          // For options
           const updatedOptionMedia = [...formData.optionMedia];
-          updatedOptionMedia[uploadingFor] = mediaObject;
-          setFormData({...formData, optionMedia: updatedOptionMedia});
+          updatedOptionMedia[uploadingFor] = [
+            ...updatedOptionMedia[uploadingFor],
+            ...mediaObjects
+          ];
+          setFormData({ ...formData, optionMedia: updatedOptionMedia });
         }
       } else {
-        setUploadError(response.data.message || 'Failed to upload file');
+        setUploadError(response.data.message || 'Failed to upload files');
       }
     } catch (error) {
-      console.error('Error uploading file:', error);
-      setUploadError(error.response?.data?.message || 'An error occurred while uploading the file');
+      console.error('Error uploading files:', error);
+      setUploadError(error.message || 'An error occurred while uploading the files');
     } finally {
       setIsUploading(false);
     }
   };
 
-  const handleRemoveUploadedMedia = (target) => {
-    // Remove media for the specified target
+  const handleRemoveUploadedMedia = (target, index) => {
     if (target === 'question') {
-      setFormData({...formData, questionMedia: null});
+      const updatedQuestionMedia = [...formData.questionMedia];
+      updatedQuestionMedia.splice(index, 1);
+      setFormData({ ...formData, questionMedia: updatedQuestionMedia });
     } else if (target === 'explanation') {
-      setFormData({...formData, explanationMedia: null});
+      const updatedExplanationMedia = [...formData.explanationMedia];
+      updatedExplanationMedia.splice(index, 1);
+      setFormData({ ...formData, explanationMedia: updatedExplanationMedia });
     } else if (typeof target === 'number') {
       const updatedOptionMedia = [...formData.optionMedia];
-      updatedOptionMedia[target] = null;
-      setFormData({...formData, optionMedia: updatedOptionMedia});
+      updatedOptionMedia[target].splice(index, 1);
+      setFormData({ ...formData, optionMedia: updatedOptionMedia });
     }
     
-    // Reset upload states if we're currently uploading for this target
     if (uploadingFor === target) {
-      setUploadedFile(null);
+      setUploadedFiles([]);
+      setUrlInput('');
       setUploadSuccess(false);
       setUploadError('');
     }
@@ -227,9 +305,23 @@ const EnhancedCreateQuestionForm = ({ onQuestionCreated = () => {} }) => {
 
   const handleCancelUpload = () => {
     setUploadingFor(null);
-    setUploadedFile(null);
+    setUploadedFiles([]);
+    setUrlInput('');
+    setMediaType('file');
     setUploadSuccess(false);
     setUploadError('');
+  };
+
+  const validateMediaObject = (media) => {
+    return (
+      media &&
+      typeof media === 'object' &&
+      media.filename &&
+      media.originalname &&
+      media.mimetype &&
+      media.path &&
+      (media.size !== undefined) // Size can be 0 for URLs
+    );
   };
 
   const handleSubmit = async (e) => {
@@ -255,8 +347,23 @@ const EnhancedCreateQuestionForm = ({ onQuestionCreated = () => {} }) => {
       setErrorMessage('Please select a subject');
       return;
     }
-    
 
+    // Validate media objects
+    if (formData.questionMedia.some(media => !validateMediaObject(media))) {
+      setErrorMessage('All question media objects must include filename, originalname, mimetype, size, and path');
+      return;
+    }
+    if (formData.explanationMedia.some(media => !validateMediaObject(media))) {
+      setErrorMessage('All explanation media objects must include filename, originalname, mimetype, size, and path');
+      return;
+    }
+    for (let i = 0; i < formData.optionMedia.length; i++) {
+      if (formData.optionMedia[i].some(media => !validateMediaObject(media))) {
+        setErrorMessage(`All media objects for option ${String.fromCharCode(65 + i)} must include filename, originalname, mimetype, size, and path`);
+        return;
+      }
+    }
+    
     try {
       setIsSubmitting(true);
       setErrorMessage('');
@@ -289,7 +396,12 @@ const EnhancedCreateQuestionForm = ({ onQuestionCreated = () => {} }) => {
       
       const response = await axios.post(
         '/api/questions',
-        submissionData
+        submissionData,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`
+          }
+        }
       );
       
       if (response.data.success) {
@@ -305,16 +417,14 @@ const EnhancedCreateQuestionForm = ({ onQuestionCreated = () => {} }) => {
           subject: '',
           topic: '',
           tags: [],
-          questionMedia: null,
-          explanationMedia: null,
-          optionMedia: Array(2).fill(null),
+          questionMedia: [],
+          explanationMedia: [],
+          optionMedia: Array(2).fill([]),
           sourceUrl: ''
         });
         
-        // Trigger callback
         onQuestionCreated(response.data.data);
         
-        // Clear success message after 3 seconds
         setTimeout(() => {
           setSuccessMessage('');
         }, 3000);
@@ -331,40 +441,45 @@ const EnhancedCreateQuestionForm = ({ onQuestionCreated = () => {} }) => {
   
   // Helper function to render media upload button
   const renderMediaButton = (target, media) => {
-    if (media) {
-      // Show the attached media info
-      return (
-        <div className="flex items-center mt-2 p-2 bg-blue-50 border border-blue-200 rounded-md text-sm">
-          <div className="flex items-center flex-1 overflow-hidden">
-            {media.type === 'image' ? (
-              <Image className="w-4 h-4 mr-2 text-blue-500" />
-            ) : (
-              <File className="w-4 h-4 mr-2 text-blue-500" />
-            )}
-            <span className="truncate">{media.originalname}</span>
-          </div>
-          <button
-            type="button"
-            onClick={() => handleRemoveUploadedMedia(target)}
-            className="ml-2 p-1 text-gray-500 hover:text-red-500"
-            title="Remove media"
-          >
-            <X size={16} />
-          </button>
-        </div>
-      );
-    }
+    const mediaArray = Array.isArray(media) ? media : [media].filter(Boolean);
     
-    // Show the "Add Media" button
     return (
-      <button
-        type="button"
-        onClick={() => startMediaUpload(target)}
-        className="mt-2 flex items-center text-sm text-blue-600 hover:text-blue-800"
-      >
-        <Paperclip size={14} className="mr-1" />
-        Add Media (Optional)
-      </button>
+      <div className="mt-2">
+        {mediaArray.length > 0 && (
+          <div className="space-y-2 mb-2">
+            {mediaArray.map((mediaItem, index) => (
+              <div key={index} className="flex items-center p-2 bg-blue-50 border border-blue-200 rounded-md text-sm">
+                <div className="flex items-center flex-1 overflow-hidden">
+                  {mediaItem.type === 'image' ? (
+                    <Image className="w-4 h-4 mr-2 text-blue-500" />
+                  ) : mediaItem.type === 'url' ? (
+                    <Link className="w-4 h-4 mr-2 text-blue-500" />
+                  ) : (
+                    <File className="w-4 h-4 mr-2 text-blue-500" />
+                  )}
+                  <span className="truncate">{mediaItem.originalname}</span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => handleRemoveUploadedMedia(target, index)}
+                  className="ml-2 p-1 text-gray-500 hover:text-red-500"
+                  title="Remove media"
+                >
+                  <X size={16} />
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+        <button
+          type="button"
+          onClick={() => startMediaUpload(target)}
+          className="flex items-center text-sm text-blue-600 hover:text-blue-800"
+        >
+          <Paperclip size={14} className="mr-1" />
+          Add Media or URL (Optional)
+        </button>
+      </div>
     );
   };
 
@@ -408,15 +523,41 @@ const EnhancedCreateQuestionForm = ({ onQuestionCreated = () => {} }) => {
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-white rounded-lg p-6 w-full max-w-md">
             <h3 className="text-lg font-semibold mb-4">
-              Upload Media {
+              Add Media or URL {
                 uploadingFor === 'question' ? 'for Question' :
                 uploadingFor === 'explanation' ? 'for Explanation' :
                 `for Option ${String.fromCharCode(65 + uploadingFor)}`
               }
             </h3>
             
+            {/* Media Type Toggle */}
+            <div className="mb-4 flex space-x-4">
+              <label className="flex items-center">
+                <input
+                  type="radio"
+                  name="mediaType"
+                  value="file"
+                  checked={mediaType === 'file'}
+                  onChange={() => setMediaType('file')}
+                  className="mr-2"
+                />
+                Upload File
+              </label>
+              <label className="flex items-center">
+                <input
+                  type="radio"
+                  name="mediaType"
+                  value="url"
+                  checked={mediaType === 'url'}
+                  onChange={() => setMediaType('url')}
+                  className="mr-2"
+                />
+                Paste URL
+              </label>
+            </div>
+            
             <div className="mb-4">
-              {!uploadedFile ? (
+              {mediaType === 'file' && !uploadedFiles.length ? (
                 <div className="flex items-center justify-center w-full">
                   <label className="flex flex-col items-center justify-center w-full h-32 border-2 border-dashed rounded-lg cursor-pointer bg-gray-50 hover:bg-gray-100">
                     <div className="flex flex-col items-center justify-center pt-5 pb-6">
@@ -433,30 +574,56 @@ const EnhancedCreateQuestionForm = ({ onQuestionCreated = () => {} }) => {
                       className="hidden" 
                       onChange={handleFileChange} 
                       accept="image/*,video/*,application/pdf"
+                      multiple
                     />
                   </label>
                 </div>
+              ) : mediaType === 'file' && uploadedFiles.length > 0 ? (
+                <div className="space-y-2">
+                  {uploadedFiles.map((file, index) => (
+                    <div key={index} className="flex items-center justify-between p-3 bg-white border rounded-lg">
+                      <div className="flex items-center overflow-hidden">
+                        {getFileIcon(file)}
+                        <span className="truncate max-w-xs">{file.name}</span>
+                        <span className="text-xs text-gray-500 ml-2">
+                          ({Math.round(file.size / 1024)} KB)
+                        </span>
+                      </div>
+                      <div className="flex items-center">
+                        {uploadSuccess && (
+                          <CheckCircle className="w-5 h-5 text-green-500 mr-2" />
+                        )}
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const updatedFiles = uploadedFiles.filter((_, i) => i !== index);
+                            setUploadedFiles(updatedFiles);
+                          }}
+                          className="p-1 text-gray-500 rounded-full hover:bg-gray-100"
+                        >
+                          <X size={18} />
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
               ) : (
-                <div className="flex items-center justify-between p-3 bg-white border rounded-lg">
-                  <div className="flex items-center overflow-hidden">
-                    {getFileIcon(uploadedFile)}
-                    <span className="truncate max-w-xs">{uploadedFile.name}</span>
-                    <span className="text-xs text-gray-500 ml-2">
-                      ({Math.round(uploadedFile.size / 1024)} KB)
-                    </span>
-                  </div>
-                  <div className="flex items-center">
-                    {uploadSuccess && (
-                      <CheckCircle className="w-5 h-5 text-green-500 mr-2" />
-                    )}
-                    <button
-                      type="button"
-                      onClick={() => setUploadedFile(null)}
-                      className="p-1 text-gray-500 rounded-full hover:bg-gray-100"
-                    >
-                      <X size={18} />
-                    </button>
-                  </div>
+                <div className="flex flex-col space-y-2">
+                  <input
+                    type="text"
+                    value={urlInput}
+                    onChange={(e) => setUrlInput(e.target.value)}
+                    placeholder="Paste URL (e.g., https://example.com/image.jpg)"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                  <button
+                    type="button"
+                    onClick={handleAddUrl}
+                    className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 flex items-center"
+                  >
+                    <Link size={16} className="mr-2" />
+                    Add URL
+                  </button>
                 </div>
               )}
             </div>
@@ -470,7 +637,7 @@ const EnhancedCreateQuestionForm = ({ onQuestionCreated = () => {} }) => {
             {uploadSuccess && (
               <div className="mb-4 text-sm text-green-600 flex items-center">
                 <CheckCircle size={16} className="mr-1" />
-                File uploaded successfully!
+                {mediaType === 'file' ? 'File(s) uploaded successfully!' : 'URL added successfully!'}
               </div>
             )}
             
@@ -483,7 +650,7 @@ const EnhancedCreateQuestionForm = ({ onQuestionCreated = () => {} }) => {
                 Cancel
               </button>
               
-              {uploadedFile && !uploadSuccess && (
+              {mediaType === 'file' && uploadedFiles.length > 0 && !uploadSuccess && (
                 <button
                   type="button"
                   onClick={handleUploadMedia}
@@ -558,7 +725,7 @@ const EnhancedCreateQuestionForm = ({ onQuestionCreated = () => {} }) => {
                         : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
                     }`}
                   >
-                    {String.fromCharCode(65 + index)} {/* A, B, C, etc. */}
+                    {String.fromCharCode(65 + index)}
                   </div>
                   <input
                     type="text"
@@ -705,6 +872,22 @@ const EnhancedCreateQuestionForm = ({ onQuestionCreated = () => {} }) => {
             </div>
           </div>
         )}
+        
+        {/* Source URL */}
+        <div className="mb-6">
+          <label className="block text-gray-700 font-medium mb-2" htmlFor="sourceUrl">
+            Source URL (Optional)
+          </label>
+          <input
+            id="sourceUrl"
+            name="sourceUrl"
+            type="url"
+            value={formData.sourceUrl}
+            onChange={handleInputChange}
+            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+            placeholder="Enter source URL (e.g., https://example.com)"
+          />
+        </div>
         
         {/* Submit Button */}
         <div className="flex justify-end">

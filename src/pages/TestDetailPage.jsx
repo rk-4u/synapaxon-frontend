@@ -27,7 +27,7 @@ const TestDetailPage = () => {
         }
 
         // Fetch test session details
-        const sessionResponse = await fetch(`https://synapaxon-backend.onrender.com/api/tests/${testId}`, {
+        const sessionResponse = await fetch(`http://localhost:8000/api/tests/${testId}`, {
           headers: {
             'Authorization': `Bearer ${token}`,
             'Content-Type': 'application/json',
@@ -49,7 +49,7 @@ const TestDetailPage = () => {
           query += `&filter=${filter}`;
         }
 
-        const questionsResponse = await fetch(`https://synapaxon-backend.onrender.com/api/student-questions/history/${testId}?${query}`, {
+        const questionsResponse = await fetch(`http://localhost:8000/api/student-questions/history/${testId}?${query}`, {
           headers: {
             'Authorization': `Bearer ${token}`,
             'Content-Type': 'application/json',
@@ -84,7 +84,7 @@ const TestDetailPage = () => {
         });
 
         // Fetch analytics data
-        const allQuestionsResponse = await fetch(`https://synapaxon-backend.onrender.com/api/student-questions/history/${testId}`, {
+        const allQuestionsResponse = await fetch(`http://localhost:8000/api/student-questions/history/${testId}`, {
           headers: {
             'Authorization': `Bearer ${token}`,
             'Content-Type': 'application/json',
@@ -141,7 +141,7 @@ const TestDetailPage = () => {
         // Fetch additional question details (explanations and media)
         const questionDetailsPromises = questionsData.data.map(async (question) => {
           try {
-            const response = await fetch(`https://synapaxon-backend.onrender.com/api/questions/${question.question?._id}`, {
+            const response = await fetch(`http://localhost:8000/api/questions/${question.question?._id}`, {
               headers: {
                 'Authorization': `Bearer ${token}`,
                 'Content-Type': 'application/json',
@@ -217,46 +217,66 @@ const TestDetailPage = () => {
 
   const renderMedia = (media) => {
     if (!media) return null;
-    if (media.type === 'image') {
-      return (
-        <div className="mt-4">
-          <div className="flex items-center mb-2">
-            <ImageIcon className="w-5 h-5 text-indigo-600 mr-2" />
-            <span className="text-sm font-medium text-gray-700">Image</span>
+    const mediaItems = Array.isArray(media) ? media : [media];
+    return mediaItems.map((item, index) => {
+      if (item.mimetype === 'text/url') {
+        return (
+          <div key={index} className="mt-4">
+            <div className="flex items-center mb-2">
+              <ImageIcon className="w-5 h-5 text-indigo-600 mr-2" />
+              <span className="text-sm font-medium text-gray-700">URL Media</span>
+            </div>
+            <a
+              href={item.path}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-blue-600 hover:underline"
+            >
+              {item.originalname || 'View URL'}
+            </a>
           </div>
-          <img
-            src={media.url}
-            alt="Question media"
-            className="max-w-full h-auto rounded-lg border border-gray-200"
-            onError={(e) => {
-              e.target.alt = 'Failed to load image';
-              e.target.className = 'text-red-600';
-            }}
-          />
-        </div>
-      );
-    } else if (media.type === 'video') {
-      return (
-        <div className="mt-4">
-          <div className="flex items-center mb-2">
-            <Video className="w-5 h-5 text-indigo-600 mr-2" />
-            <span className="text-sm font-medium text-gray-700">Video</span>
+        );
+      } else if (item.mimetype?.startsWith('image/')) {
+        return (
+          <div key={index} className="mt-4">
+            <div className="flex items-center mb-2">
+              <ImageIcon className="w-5 h-5 text-indigo-600 mr-2" />
+              <span className="text-sm font-medium text-gray-700">Image</span>
+            </div>
+            <img
+              src={item.path}
+              alt={item.originalname || 'Question media'}
+              className="max-w-full h-auto rounded-lg border border-gray-200"
+              onError={(e) => {
+                e.target.alt = 'Failed to load image';
+                e.target.className = 'text-red-600';
+              }}
+            />
           </div>
-          <video
-            controls
-            src={media.url}
-            className="max-w-full h-auto rounded-lg border border-gray-200"
-            onError={(e) => {
-              e.target.nextSibling.textContent = 'Failed to load video';
-              e.target.nextSibling.className = 'text-red-600';
-            }}
-          >
-            <p className="text-red-600">Your browser does not support the video tag.</p>
-          </video>
-        </div>
-      );
-    }
-    return null;
+        );
+      } else if (item.mimetype?.startsWith('video/')) {
+        return (
+          <div key={index} className="mt-4">
+            <div className="flex items-center mb-2">
+              <Video className="w-5 h-5 text-indigo-600 mr-2" />
+              <span className="text-sm font-medium text-gray-700">Video</span>
+            </div>
+            <video
+              controls
+              src={item.path}
+              className="max-w-full h-auto rounded-lg border border-gray-200"
+              onError={(e) => {
+                e.target.nextSibling.textContent = 'Failed to load video';
+                e.target.nextSibling.className = 'text-red-600';
+              }}
+            >
+              <p className="text-red-600">Your browser does not support the video tag.</p>
+            </video>
+          </div>
+        );
+      }
+      return null;
+    });
   };
 
   if (loading) {
@@ -599,7 +619,8 @@ const TestDetailPage = () => {
                               </div>
                             ))}
                           </div>
-                          {renderMedia(questionDetails[question._id]?.media)}
+                          {renderMedia(questionDetails[question._id]?.questionMedia)}
+                          {renderMedia(questionDetails[question._id]?.explanationMedia)}
                           <div className="mt-6">
                             <h4 className="text-base font-semibold text-gray-900 mb-2">Explanation</h4>
                             <p className="text-base text-gray-700">{questionDetails[question._id]?.explanation || 'No explanation available'}</p>

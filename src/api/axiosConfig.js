@@ -2,7 +2,7 @@
 import axios from 'axios';
 
 // Base URL setup - adjust as needed
-axios.defaults.baseURL = 'https://synapaxon-backend.onrender.com';
+axios.defaults.baseURL = 'http://localhost:8000';
 
 // Request interceptor - automatically add token
 axios.interceptors.request.use(
