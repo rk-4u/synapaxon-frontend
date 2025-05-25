@@ -1,5 +1,4 @@
 import { useState, useEffect } from 'react';
-import ECGHero from "../components/ECGHero";
 
 function LandingPage() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -49,7 +48,7 @@ function LandingPage() {
                   Features
                 </a>
                 <a href="#pricing" className="border-transparent text-gray-5
-                System: 00 dark:text-gray-400 hover:border-gray-300 dark:hover:border-indigo-500 hover:text-gray-700 dark:hover:text-gray-200 inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium">
+System: 00 dark:text-gray-400 hover:border-gray-300 dark:hover:border-indigo-500 hover:text-gray-700 dark:hover:text-gray-200 inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium">
                   Pricing
                 </a>
                 <a href="#faq" className="border-transparent text-gray-500 dark:text-gray-400 hover:border-gray-300 dark:hover:border-indigo-500 hover:text-gray-700 dark:hover:text-gray-200 inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium">
@@ -63,7 +62,7 @@ function LandingPage() {
               </a>
               <a
                 href="/register"
-                className="ml-4 inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium shadow-sm text-white bg-indigo-500 dark:bg-indigo-600 hover:bg-indigo-600 dark:hover:bg-indigo-500 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 rounded-full"
+                className="ml-4 inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium shadow-sm text-white bg-indigo-500 dark:bg-indigo-600 hover:bg-indigo-600 dark:hover:bg-indigo-500 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
               >
                 Register
               </a>
@@ -83,6 +82,9 @@ function LandingPage() {
                     }`}
                   ></span>
                 </button>
+
+
+
             </div>
             <div className="-mr-2 flex items-center sm:hidden">
               <button
@@ -145,63 +147,44 @@ function LandingPage() {
       </nav>
 
       {/* Hero Section */}
-        <div className="bg-gradient-to-b from-white via-blue-50 to-blue-100 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900 shadow-md relative overflow-hidden">
-
-          {/* ECG Animated Background */}
-          <ECGHero />
-          {/* Hero Section with Medical-Themed Animation and Graphics */}
-          {/* 
-          <div className="relative max-w-7xl mx-auto min-h-screen flex flex-col justify-center items-center py-16 px-5 sm:py-24 sm:px-6 lg:px-8 text-center overflow-hidden">
-            <h1 className="text-4xl font-extrabold tracking-tight text-gray-900 dark:text-gray-100 sm:text-5xl lg:text-6xl z-10 relative">
-              Elevate Your Learning Experience
-            </h1>
-            <p className="mt-6 max-w-lg mx-auto text-xl text-gray-500 dark:text-gray-300 z-10 relative">
-              Create, share, and master knowledge with Synapaxon's powerful quiz platform.
-            </p>
-            <div className="mt-10 flex justify-center space-x-4 z-10 relative">
-              <a
-                href="/register"
-                className="inline-flex items-center px-6 py-3 border border-transparent text-base font-medium shadow-sm text-white bg-indigo-500 dark:bg-indigo-600 hover:bg-indigo-600 dark:hover:bg-indigo-500 rounded-full transition-all duration-300 hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-indigo-400"
-              >
-                Get Started
-              </a>
-              <a
-                href="#features"
-                className="inline-flex items-center px-6 py-3 border border-transparent text-base font-medium text-indigo-500 dark:text-indigo-300 bg-indigo-100 dark:bg-indigo-900/50 hover:bg-indigo-200 dark:hover:bg-indigo-800 rounded-full transition-all duration-300 hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-indigo-400"
-              >
-                Learn more
-              </a>
-            </div>
+      <div className="bg-white/20 dark:bg-gray-800/20 backdrop-blur-sm border border-white/20 dark:border-gray-700/20 shadow-md">
+        <div className="max-w-7xl mx-auto py-16 px-4 sm:py-24 sm:px-6 lg:px-8 text-center">
+          <h1 className="text-4xl font-extrabold tracking-tight text-gray-900 dark:text-gray-100 sm:text-5xl lg:text-6xl">
+            Elevate Your Learning Experience
+          </h1>
+          <p className="mt-6 max-w-lg mx-auto text-xl text-gray-500 dark:text-gray-300">
+            Create, share, and master knowledge with Synapaxon's powerful quiz platform.
+          </p>
+          <div className="mt-10 flex justify-center space-x-4">
+            <a
+              href="/register"
+              className="inline-flex items-center px-6 py-3 border border-transparent text-base font-medium shadow-sm text-white bg-indigo-500 dark:bg-indigo-600 hover:bg-indigo-600 dark:hover:bg-indigo-500"
+            >
+              Get Started
+            </a>
+            <a
+              href="#features"
+              className="inline-flex items-center px-6 py-3 border border-transparent text-base font-medium text-indigo-500 dark:text-indigo-300 bg-indigo-100 dark:bg-indigo-900/50 hover:bg-indigo-200 dark:hover:bg-indigo-800"
+            >
+              Learn more
+            </a>
           </div>
-          */}
-          <style>
-            {`
-              @keyframes ecgLine {
-                0% {
-                  transform: translateX(0%);
-                }
-                100% {
-                  transform: translateX(-50%);
-                }
-              }
-
-              .animate-ecgLine {
-                animation: ecgLine 4s linear infinite;
-              }
-            `}
-          </style>
         </div>
-        <div id="features" className="py-12 bg-white/20 dark:bg-gray-800/20 backdrop-blur-sm border border-white/20 dark:border-gray-700/20 shadow-md flex flex-col justify-center">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div className="lg:text-center">
-              <h2 className="text-base text-indigo-500 dark:text-indigo-300 font-semibold tracking-wide uppercase">Features</h2>
-              <p className="mt-2 text-3xl leading-8 font-extrabold tracking-tight text-gray-900 dark:text-gray-100 sm:text-4xl">
-                Everything you need to learn effectively
-              </p>
-            </div>
-            <div className="mt-10">
-              <div className="space-y-10 md:space-y-0 md:grid md:grid-cols-3 md:gap-x-8 md:gap-y-10">
-                {/* Feature 1 */}
+      </div>
+
+      {/* Features Section */}
+      <div id="features" className="py-12 bg-white/20 dark:bg-gray-800/20 backdrop-blur-sm border border-white/20 dark:border-gray-700/20 shadow-md">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="lg:text-center">
+            <h2 className="text-base text-indigo-500 dark:text-indigo-300 font-semibold tracking-wide uppercase">Features</h2>
+            <p className="mt-2 text-3xl leading-8 font-extrabold tracking-tight text-gray-900 dark:text-gray-100 sm:text-4xl">
+              Everything you need to learn effectively
+            </p>
+          </div>
+
+          <div className="mt-10">
+            <div className="space-y-10 md:space-y-0 md:grid md:grid-cols-3 md:gap-x-8 md:gap-y-10">
+              {/* Feature 1 */}
               <div className="relative">
                 <div className="absolute flex items-center justify-center h-12 w-12 bg-indigo-500 dark:bg-indigo-600 text-white">
                   <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -254,7 +237,7 @@ function LandingPage() {
             </p>
             <div className="relative mt-12 bg-transparent space-y-4 sm:space-y-0 sm:grid sm:grid-cols-3 sm:gap-6 lg:max-w-4xl lg:mx-auto">
               {/* Free Tier */}
-              <div className="border border-gray-200 dark:border-gray-700 shadow-lg divide-y divide-gray-200 dark:divide-gray-700 bg-white/20 dark:bg-gray-800/20 backdrop-blur-sm rounded-2xl transition-transform duration-300 hover:scale-105 hover:shadow-2xl hover:border-indigo-400 dark:hover:border-indigo-400">
+              <div className="border border-gray-200 dark:border-gray-700 shadow-sm divide-y divide-gray-200 dark:divide-gray-700 bg-white/20 dark:bg-gray-800/20 backdrop-blur-sm">
                 <div className="p-6">
                   <h3 className="text-lg leading-6 font-medium text-gray-900 dark:text-gray-100">Free</h3>
                   <p className="mt-4 text-sm text-gray-500 dark:text-gray-300">Perfect for getting started</p>
@@ -264,7 +247,7 @@ function LandingPage() {
                   </p>
                   <a
                     href="/register"
-                    className="mt-8 block w-full py-3 px-6 border border-transparent text-center font-medium text-white bg-indigo-500 dark:bg-indigo-600 hover:bg-indigo-600 dark:hover:bg-indigo-500 rounded-full transition-all duration-300"
+                    className="mt-8 block w-full py-3 px-6 border border-transparent text-center font-medium text-white bg-indigo-500 dark:bg-indigo-600 hover:bg-indigo-600 dark:hover:bg-indigo-500"
                   >
                     Get started
                   </a>
@@ -292,8 +275,10 @@ function LandingPage() {
                     </li>
                   </ul>
                 </div>
-              </div>  
-              <div className="border-2 border-indigo-500 dark:border-indigo-300 shadow-sm divide-y divide-gray-200 dark:divide-gray-700 bg-white/20 dark:bg-gray-800/20 backdrop-blur-sm rounded-2xl transition-transform duration-300 hover:scale-105 hover:shadow-2xl hover:border-indigo-400 dark:hover:border-indigo-400">
+              </div>
+
+              {/* Pro Tier */}
+              <div className="border-2 border-indigo-500 dark:border-indigo-300 shadow-sm divide-y divide-gray-200 dark:divide-gray-700 bg-white/20 dark:bg-gray-800/20 backdrop-blur-sm">
                 <div className="p-6">
                   <h3 className="text-lg leading-6 font-medium text-gray-900 dark:text-gray-100">Pro</h3>
                   <p className="mt-4 text-sm text-gray-500 dark:text-gray-300">For serious learners and educators</p>
@@ -303,7 +288,7 @@ function LandingPage() {
                   </p>
                   <a
                     href="/register"
-                    className="mt-8 block w-full py-3 px-6 border border-transparent text-center font-medium text-white bg-indigo-500 dark:bg-indigo-600 hover:bg-indigo-600 dark:hover:bg-indigo-500 rounded-full transition-all duration-300"
+                    className="mt-8 block w-full py-3 px-6 border border-transparent text-center font-medium text-white bg-indigo-500 dark:bg-indigo-600 hover:bg-indigo-600 dark:hover:bg-indigo-500"
                   >
                     Upgrade
                   </a>
@@ -340,7 +325,7 @@ function LandingPage() {
               </div>
 
               {/* Enterprise Tier */}
-              <div className="border border-gray-200 dark:border-gray-700 shadow-sm divide-y divide-gray-200 dark:divide-gray-700 bg-white/20 dark:bg-gray-800/20 backdrop-blur-sm rounded-2xl transition-transform duration-300 hover:scale-105 hover:shadow-2xl hover:border-indigo-400 dark:hover:border-indigo-400">
+              <div className="border border-gray-200 dark:border-gray-700 shadow-sm divide-y divide-gray-200 dark:divide-gray-700 bg-white/20 dark:bg-gray-800/20 backdrop-blur-sm">
                 <div className="p-6">
                   <h3 className="text-lg leading-6 font-medium text-gray-900 dark:text-gray-100">Enterprise</h3>
                   <p className="mt-4 text-sm text-gray-500 dark:text-gray-300">For schools and organizations</p>
@@ -350,7 +335,7 @@ function LandingPage() {
                   </p>
                   <a
                     href="/contact"
-                    className="mt-8 block w-full py-3 px-6 border border-transparent text-center font-medium text-white bg-indigo-500 dark:bg-indigo-600 hover:bg-indigo-600 dark:hover:bg-indigo-500 rounded-full transition-all duration-300"
+                    className="mt-8 block w-full py-3 px-6 border border-transparent text-center font-medium text-white bg-indigo-500 dark:bg-indigo-600 hover:bg-indigo-600 dark:hover:bg-indigo-500"
                   >
                     Contact us
                   </a>
@@ -408,7 +393,7 @@ function LandingPage() {
           </p>
           <a
             href="/register"
-            className="mt-8 w-full inline-flex items-center justify-center px-5 py-3 border border-transparent text-base font-medium text-indigo-600 dark:text-white bg-white dark:bg-indigo-900/50 hover:bg-indigo-50 dark:hover:bg-indigo-800 sm:w-auto rounded-full transition-all duration-300"
+            className="mt-8 w-full inline-flex items-center justify-center px-5 py-3 border border-transparent text-base font-medium text-indigo-600 dark:text-white bg-white dark:bg-indigo-900/50 hover:bg-indigo-50 dark:hover:bg-indigo-800 sm:w-auto"
           >
             Sign up for free
           </a>
