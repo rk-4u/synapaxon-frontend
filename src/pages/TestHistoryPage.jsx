@@ -211,7 +211,7 @@ const TestHistoryPage = () => {
         </p>
         <div className="space-y-4">
           <button
-            onClick={() => navigate("/dashboard")}
+            onClick={() => navigate("/dashboard/starttest")}
             className="w-full px-8 py-4 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-xl hover:from-indigo-700 hover:to-purple-700 transition-all duration-300 text-lg font-semibold shadow-lg hover:shadow-xl transform hover:-translate-y-1"
           >
             Start Your First Test

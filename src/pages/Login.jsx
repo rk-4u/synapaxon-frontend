@@ -7,11 +7,9 @@ function Login() {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [validationErrors, setValidationErrors] = useState({});
   const navigate = useNavigate();
   const { login } = useAuth();
-
-  // Simple client-side validation errors
-  const [validationErrors, setValidationErrors] = useState({});
 
   function validate() {
     const errors = {};
@@ -33,8 +31,15 @@ function Login() {
 
     setLoading(true);
     try {
-      await login(email, password);
-      navigate('/dashboard');
+      // login() now returns response.data, which includes { token, user }
+      const data = await login(email, password);
+
+      // check role and navigate accordingly
+      if (data.user.role === 'admin') {
+        navigate('/admin');
+      } else {
+        navigate('/dashboard');
+      }
     } catch (err) {
       setError(err.response?.data?.message || 'Failed to login');
     } finally {
@@ -60,9 +65,11 @@ function Login() {
               id="email"
               type="email"
               value={email}
-              onChange={(e) => setEmail(e.target.value)}
+              onChange={e => setEmail(e.target.value)}
               className={`w-full px-4 py-2 border rounded-md focus:outline-none focus:ring-2 ${
-                validationErrors.email ? 'border-red-500 focus:ring-red-500' : 'border-gray-300 focus:ring-indigo-500'
+                validationErrors.email
+                  ? 'border-red-500 focus:ring-red-500'
+                  : 'border-gray-300 focus:ring-indigo-500'
               }`}
               placeholder="you@example.com"
             />
@@ -79,9 +86,11 @@ function Login() {
               id="password"
               type="password"
               value={password}
-              onChange={(e) => setPassword(e.target.value)}
+              onChange={e => setPassword(e.target.value)}
               className={`w-full px-4 py-2 border rounded-md focus:outline-none focus:ring-2 ${
-                validationErrors.password ? 'border-red-500 focus:ring-red-500' : 'border-gray-300 focus:ring-indigo-500'
+                validationErrors.password
+                  ? 'border-red-500 focus:ring-red-500'
+                  : 'border-gray-300 focus:ring-indigo-500'
               }`}
               placeholder="Your password"
             />

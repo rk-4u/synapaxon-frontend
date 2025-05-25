@@ -394,11 +394,6 @@ const EnhancedCreateQuestionForm = ({ onQuestionCreated = () => {} }) => {
       return;
     }
     
-    if (!formData.subject || !formData.topic) {
-      setErrorMessage('Please select a subject and topic');
-      return;
-    }
-
     // Validate media objects
     if (formData.questionMedia.some(media => !validateMediaObject(media))) {
       setErrorMessage('All question media objects must include filename, originalname, mimetype, size, and path');
