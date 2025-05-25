@@ -2,9 +2,11 @@ import PlatformSettings from '../components/PlatformSettings';
 
 const Settings = () => {
   return (
-    <div>
-      <h2 className="text-2xl font-bold text-gray-900 mb-2">Platform Settings</h2>
-      <p className="text-sm text-gray-500 mb-6">Configure system-wide settings and preferences</p>
+    <div className="space-y-6">
+      <div>
+        <h2 className="text-2xl font-bold text-gray-900">Platform Settings</h2>
+        <p className="mt-1 text-sm text-gray-600">Configure platform settings</p>
+      </div>
       <PlatformSettings />
     </div>
   );

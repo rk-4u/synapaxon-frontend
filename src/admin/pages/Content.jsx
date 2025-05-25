@@ -2,9 +2,11 @@ import ContentApproval from '../components/ContentApproval';
 
 const Content = () => {
   return (
-    <div>
-      <h2 className="text-2xl font-bold text-gray-900 mb-2">Content Approval</h2>
-      <p className="text-sm text-gray-500 mb-6">Review and approve user-submitted questions</p>
+    <div className="space-y-6">
+      <div>
+        <h2 className="text-2xl font-bold text-gray-900">Content Approval</h2>
+        <p className="mt-1 text-sm text-gray-600">Review and approve user-submitted content</p>
+      </div>
       <ContentApproval />
     </div>
   );
