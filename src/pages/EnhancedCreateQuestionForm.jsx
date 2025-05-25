@@ -11,8 +11,7 @@ const EnhancedCreateQuestionForm = ({ onQuestionCreated = () => {} }) => {
     correctAnswer: null,
     difficulty: 'medium',
     category: 'Basic Sciences',
-    subject: '',
-    topic: '',
+    subjects: [], // Array of { name: String, topics: []String [] },
     tags: [],
     questionMedia: [],
     explanationMedia: [],
@@ -34,11 +33,6 @@ const EnhancedCreateQuestionForm = ({ onQuestionCreated = () => {} }) => {
   const [uploadSuccess, setUploadSuccess] = useState(false);
   const [uploadError, setUploadError] = useState('');
 
-  // Additional category/subject/topic states
-  const [additionalDetails, setAdditionalDetails] = useState([]);
-  const [showDetailModal, setShowDetailModal] = useState(false);
-  const [tempDetail, setTempDetail] = useState({ category: 'Basic Sciences', subject: '', topic: '' });
-
   const handleInputChange = (e) => {
     const { name, value } = e.target;
     setFormData({ ...formData, [name]: value });
@@ -54,24 +48,42 @@ const EnhancedCreateQuestionForm = ({ onQuestionCreated = () => {} }) => {
     setFormData({ ...formData, correctAnswer: index });
   };
 
-  const handleCategoryChange = (e) => {
-    const category = e.target.value;
+  const handleCategoryChange = (category) => {
     setFormData({ 
       ...formData, 
       category,
-      subject: '',
-      topic: ''
+      subjects: []
     });
   };
 
-  const handleSubjectChange = (e) => {
-    const subject = e.target.value;
+  const handleSubjectToggle = (subject) => {
+    let updatedSubjects;
+    if (formData.subjects.some(s => s.name === subject)) {
+      updatedSubjects = formData.subjects.filter(s => s.name !== subject);
+    } else {
+        updatedSubjects = [...formData.subjects, { name: subject, topics: [] }];
+    }
     setFormData({ 
       ...formData, 
-      subject,
-      topic: ''
+      subjects: updatedSubjects
     });
   };
+
+  const handleTopicToggle = (topic, subjectName) => {
+    const updatedSubjects = formData.subjects.map(subject => {
+      if (subject.name === subjectName) {
+        const updatedTopics = subject.topics.includes(topic)
+          ? subject.topics.filter(t => t !== topic)
+          : [...subject.topics, topic];
+          return { ...subject, topics: updatedTopics };
+        }
+        return subject;
+      });
+      setFormData({
+        ...formData,
+        subjects: updatedSubjects
+      });
+    };
 
   const handleAddOption = () => {
     setFormData({
@@ -171,7 +183,7 @@ const EnhancedCreateQuestionForm = ({ onQuestionCreated = () => {} }) => {
     }
 
     const url = urlInput.trim();
-    const filename = url.split('/').pop() || `url-${Date.now()}`; // Ensure non-empty filename
+    const filename = url.split('/').pop() || `url-${Date.now()}`;
     const mediaObject = {
       type: 'url',
       path: url,
@@ -181,7 +193,6 @@ const EnhancedCreateQuestionForm = ({ onQuestionCreated = () => {} }) => {
       size: 0
     };
 
-    // Update the appropriate media field
     if (uploadingFor === 'question') {
       setFormData({
         ...formData,
@@ -241,7 +252,6 @@ const EnhancedCreateQuestionForm = ({ onQuestionCreated = () => {} }) => {
         setUploadSuccess(true);
         
         const mediaObjects = response.data.data.map(file => {
-          // Ensure all required fields are present
           if (!file.filename || !file.originalname || !file.mimetype || !file.size || !file.path) {
             throw new Error('Invalid media object from server');
           }
@@ -255,7 +265,6 @@ const EnhancedCreateQuestionForm = ({ onQuestionCreated = () => {} }) => {
           };
         });
         
-        // Update the appropriate media field
         if (uploadingFor === 'question') {
           setFormData({
             ...formData,
@@ -317,52 +326,6 @@ const EnhancedCreateQuestionForm = ({ onQuestionCreated = () => {} }) => {
     setUploadError('');
   };
 
-  // Additional detail handlers
-  const handleAddDetail = () => {
-    if (!tempDetail.subject || !tempDetail.topic) {
-      setErrorMessage('Please select a subject and topic for the additional detail');
-      setTimeout(() => setErrorMessage(''), 3000);
-      return;
-    }
-
-    // Check for duplicate combinations
-    const isDuplicate = additionalDetails.some(
-      detail => 
-        detail.category === tempDetail.category &&
-        detail.subject === tempDetail.subject &&
-        detail.topic === tempDetail.topic
-    ) || (
-      tempDetail.category === formData.category &&
-      tempDetail.subject === formData.subject &&
-      tempDetail.topic === formData.topic
-    );
-
-    if (isDuplicate) {
-      setErrorMessage('This category/subject/topic combination is already added');
-      setTimeout(() => setErrorMessage(''), 3000);
-      return;
-    }
-
-    setAdditionalDetails([...additionalDetails, { ...tempDetail }]);
-    setTempDetail({ category: 'Basic Sciences', subject: '', topic: '' });
-    setShowDetailModal(false);
-  };
-
-  const handleRemoveDetail = (index) => {
-    const updatedDetails = [...additionalDetails];
-    updatedDetails.splice(index, 1);
-    setAdditionalDetails(updatedDetails);
-  };
-
-  const handleTempDetailChange = (field, value) => {
-    setTempDetail(prev => ({ ...prev, [field]: value }));
-    if (field === 'category') {
-      setTempDetail(prev => ({ ...prev, subject: '', topic: '' }));
-    } else if (field === 'subject') {
-      setTempDetail(prev => ({ ...prev, topic: '' }));
-    }
-  };
-
   const validateMediaObject = (media) => {
     return (
       media &&
@@ -371,7 +334,7 @@ const EnhancedCreateQuestionForm = ({ onQuestionCreated = () => {} }) => {
       media.originalname &&
       media.mimetype &&
       media.path &&
-      (media.size !== undefined) // Size can be 0 for URLs
+      (media.size !== undefined)
     );
   };
 
@@ -391,6 +354,16 @@ const EnhancedCreateQuestionForm = ({ onQuestionCreated = () => {} }) => {
     
     if (formData.correctAnswer === null) {
       setErrorMessage('Please select the correct answer');
+      return;
+    }
+    
+    if (formData.subjects.length === 0) {
+      setErrorMessage('At least one subject is required');
+      return;
+    }
+    
+    if (!formData.explanation.trim()) {
+      setErrorMessage('Explanation is required');
       return;
     }
     
@@ -421,8 +394,7 @@ const EnhancedCreateQuestionForm = ({ onQuestionCreated = () => {} }) => {
         return;
       }
       
-      // Base submission data
-      const baseSubmissionData = {
+      const submissionData = {
         questionText: formData.questionText,
         explanation: formData.explanation,
         options: formData.options.map((text, index) => ({
@@ -431,44 +403,22 @@ const EnhancedCreateQuestionForm = ({ onQuestionCreated = () => {} }) => {
         })),
         correctAnswer: formData.correctAnswer,
         difficulty: formData.difficulty,
+        category: formData.category,
+        subjects: formData.subjects, // e.g., [{ name: "Anatomy", topics: ["Skeletal System"] }]
         tags: formData.tags,
         questionMedia: formData.questionMedia,
         explanationMedia: formData.explanationMedia,
         sourceUrl: formData.sourceUrl
       };
 
-      // Create submission payloads
-      const submissionPayloads = [
-        {
-          ...baseSubmissionData,
-          category: formData.category,
-          subject: formData.subject,
-          topic: formData.topic
-        },
-        ...additionalDetails.map(detail => ({
-          ...baseSubmissionData,
-          category: detail.category,
-          subject: detail.subject,
-          topic: detail.topic
-        }))
-      ];
+      const response = await axios.post('/api/questions', submissionData, {
+        headers: {
+          Authorization: `Bearer ${token}`
+        }
+      });
 
-      // Submit all payloads concurrently
-      const responses = await Promise.all(
-        submissionPayloads.map(payload =>
-          axios.post('/api/questions', payload, {
-            headers: {
-              Authorization: `Bearer ${token}`
-            }
-          })
-        )
-      );
-
-      // Check if all submissions were successful
-      const allSuccessful = responses.every(response => response.data.success);
-      if (allSuccessful) {
-        setSuccessMessage(`${submissionPayloads.length} question(s) created successfully!`);
-        // Reset form
+      if (response.data.success) {
+        setSuccessMessage('Question created successfully!');
         setFormData({
           questionText: '',
           explanation: '',
@@ -476,30 +426,25 @@ const EnhancedCreateQuestionForm = ({ onQuestionCreated = () => {} }) => {
           correctAnswer: null,
           difficulty: 'medium',
           category: 'Basic Sciences',
-          subject: '',
-          topic: '',
+          subjects: [],
           tags: [],
           questionMedia: [],
           explanationMedia: [],
           optionMedia: Array(2).fill([]),
           sourceUrl: ''
         });
-        setAdditionalDetails([]);
         
-        onQuestionCreated(responses.map(response => response.data.data));
+        onQuestionCreated(response.data.data);
         
         setTimeout(() => {
           setSuccessMessage('');
         }, 3000);
       } else {
-        const failedMessages = responses
-          .filter(response => !response.data.success)
-          .map(response => response.data.message || 'Failed to create question');
-        setErrorMessage(`Failed to create some questions: ${failedMessages.join(', ')}`);
+        setErrorMessage(response.data.message || 'Failed to create question');
       }
     } catch (error) {
-      console.error('Error creating questions:', error);
-      setErrorMessage(error.response?.data?.message || 'An error occurred while creating the questions');
+      console.error('Error creating question:', error);
+      setErrorMessage(error.response?.data?.message || 'An error occurred while creating the question');
     } finally {
       setIsSubmitting(false);
     }
@@ -746,101 +691,6 @@ const EnhancedCreateQuestionForm = ({ onQuestionCreated = () => {} }) => {
         </div>
       )}
       
-      {/* Additional Detail Modal */}
-      {showDetailModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 w-full max-w-md">
-            <h3 className="text-lg font-semibold mb-4">Add Additional Category/Subject/Topic</h3>
-            
-            {/* Category Selection */}
-            <div className="mb-4">
-              <label className="block text-gray-700 font-medium mb-2">Category*</label>
-              <div className="flex gap-2">
-                {['Basic Sciences', 'Organ Systems', 'Clinical Specialties'].map(cat => (
-                  <button
-                    type="button"
-                    key={cat}
-                    onClick={() => handleTempDetailChange('category', cat)}
-                    className={`flex-1 py-2 text-center font-medium rounded ${
-                      tempDetail.category === cat
-                        ? 'bg-blue-500 text-white'
-                        : 'bg-blue-100 text-blue-800 hover:bg-blue-200'
-                    }`}
-                  >
-                    {cat}
-                  </button>
-                ))}
-              </div>
-            </div>
-            
-            {/* Subject Selection */}
-            <div className="mb-4">
-              <label className="block text-gray-700 font-medium mb-2">Subject*</label>
-              <div className="grid grid-cols-2 gap-2">
-                {subjectsByCategory[tempDetail.category]?.map(subject => (
-                  <button
-                    type="button"
-                    key={subject}
-                    onClick={() => handleTempDetailChange('subject', subject)}
-                    className={`py-2 px-3 rounded text-sm font-medium border ${
-                      tempDetail.subject === subject
-                        ? 'bg-blue-500 text-white border-blue-500'
-                        : 'bg-blue-50 text-blue-700 border-blue-200 hover:bg-blue-100'
-                    }`}
-                  >
-                    {subject}
-                  </button>
-                ))}
-              </div>
-            </div>
-            
-            {/* Topic Selection */}
-            {tempDetail.subject && (
-              <div className="mb-4">
-                <label className="block text-gray-700 font-medium mb-2">Topic*</label>
-                <div className="flex flex-wrap gap-2">
-                  {topicsBySubject[tempDetail.subject]?.map(topic => (
-                    <button
-                      type="button"
-                      key={topic}
-                      onClick={() => handleTempDetailChange('topic', topic)}
-                      className={`py-2 px-4 rounded text-sm font-medium border ${
-                        tempDetail.topic === topic
-                          ? 'bg-green-500 text-white border-green-500'
-                          : 'bg-green-50 text-green-700 border-green-200 hover:bg-green-100'
-                      }`}
-                    >
-                      {topic}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
-            
-            {errorMessage && (
-              <div className="mb-4 text-sm text-red-600">{errorMessage}</div>
-            )}
-            
-            <div className="flex justify-end space-x-3">
-              <button
-                type="button"
-                onClick={() => setShowDetailModal(false)}
-                className="px-4 py-2 border border-gray-300 rounded text-gray-700 hover:bg-gray-100"
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                onClick={handleAddDetail}
-                className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
-              >
-                Add
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-      
       <form onSubmit={handleSubmit}>
         {/* Question Text */}
         <div className="mb-6">
@@ -914,7 +764,7 @@ const EnhancedCreateQuestionForm = ({ onQuestionCreated = () => {} }) => {
         {/* Explanation */}
         <div className="mb-6">
           <label className="block text-gray-700 font-medium mb-2" htmlFor="explanation">
-            Explanation
+            Explanation*
           </label>
           <textarea
             id="explanation"
@@ -924,10 +774,10 @@ const EnhancedCreateQuestionForm = ({ onQuestionCreated = () => {} }) => {
             rows="3"
             className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
             placeholder="Explain the correct answer..."
+            required
           />
           {renderMediaButton('explanation', formData.explanationMedia)}
         </div>
-
         
         {/* Difficulty */}
         <div className="mb-6">
@@ -953,55 +803,36 @@ const EnhancedCreateQuestionForm = ({ onQuestionCreated = () => {} }) => {
         <div className="mb-6">
           <label className="block text-gray-700 font-medium mb-2">Category*</label>
           <div className="flex gap-2">
-            <button 
-              type="button"
-              onClick={() => setFormData({...formData, category: 'Basic Sciences', subject: '', topic: ''})}
-              className={`flex-1 py-3 text-center font-medium transition-colors rounded ${
-                formData.category === 'Basic Sciences' 
-                  ? 'bg-blue-500 text-white' 
-                  : 'bg-blue-100 text-blue-800 hover:bg-blue-200'
-              }`}
-            >
-              Basic Science
-            </button>
-            <button 
-              type="button"
-              onClick={() => setFormData({...formData, category: 'Organ Systems', subject: '', topic: ''})}
-              className={`flex-1 py-3 text-center font-medium transition-colors rounded ${
-                formData.category === 'Organ Systems' 
-                  ? 'bg-blue-500 text-white' 
-                  : 'bg-blue-100 text-blue-800 hover:bg-blue-200'
-              }`}
-            >
-              Organ Systems
-            </button>
-            <button 
-              type="button"
-              onClick={() => setFormData({...formData, category: 'Clinical Specialties', subject: '', topic: ''})}
-              className={`flex-1 py-3 text-center font-medium transition-colors rounded ${
-                formData.category === 'Clinical Specialties' 
-                  ? 'bg-blue-500 text-white' 
-                  : 'bg-blue-100 text-blue-800 hover:bg-blue-200'
-              }`}
-            >
-              Clinical Specialties
-            </button>
+            {['Basic Sciences', 'Organ Systems', 'Clinical Specialties'].map(cat => (
+              <button
+                type="button"
+                key={cat}
+                onClick={() => handleCategoryChange(cat)}
+                className={`flex-1 py-3 text-center font-medium rounded ${
+                  formData.category === cat
+                    ? 'bg-blue-500 text-white'
+                    : 'bg-blue-100 text-blue-800 hover:bg-blue-200'
+                }`}
+              >
+                {cat}
+              </button>
+            ))}
           </div>
         </div>
         
-        {/* Subject Buttons in Grid */}
+        {/* Subject Selection */}
         <div className="mb-6">
           <label className="block text-gray-700 font-medium mb-2">
-            Select A Subject for the Related Question then you have options to select topics under those subjects.
+            Select Subjects* (Click to select/deselect)
           </label>
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
-            {formData.category && subjectsByCategory[formData.category]?.map((subject) => (
+            {subjectsByCategory[formData.category]?.map((subject) => (
               <button
                 type="button"
                 key={subject}
-                onClick={() => setFormData({ ...formData, subject, topic: '' })}
-                className={`py-2 px-3 rounded text-sm font-medium border transition ${
-                  formData.subject === subject
+                onClick={() => handleSubjectToggle(subject)}
+                className={`py-2 px-3 rounded text-sm font-medium border ${
+                  formData.subjects.some(s => s.name === subject)
                     ? 'bg-blue-500 text-white border-blue-500'
                     : 'bg-blue-50 text-blue-700 border-blue-200 hover:bg-blue-100'
                 }`}
@@ -1011,57 +842,75 @@ const EnhancedCreateQuestionForm = ({ onQuestionCreated = () => {} }) => {
             ))}
           </div>
         </div>
-
-        {/* Topics Row (Visible only if subject selected) */}
-        {formData.subject && (
+        
+        {/* Topic Selection */}
+        {formData.subjects.length > 0 && (
           <div className="mb-6">
-            <label className="block text-gray-700 font-medium mb-2">Select Topic for the Related Question</label>
-            <div className="flex flex-wrap gap-2">
-              {topicsBySubject[formData.subject]?.map((topic) => (
-                <button
-                  type="button"
-                  key={topic}
-                  onClick={() => setFormData({ ...formData, topic })}
-                  className={`py-2 px-4 rounded text-sm font-medium border transition ${
-                    formData.topic === topic
-                      ? 'bg-green-500 text-white border-green-500'
-                      : 'bg-green-50 text-green-700 border-green-200 hover:bg-green-100'
-                  }`}
-                >
-                  {topic}
-                </button>
-              ))}
-            </div>
-            <button
-              type="button"
-              onClick={() => setShowDetailModal(true)}
-              className="mt-4 flex items-center text-sm text-blue-600 hover:text-blue-800"
-            >
-              <Plus size={14} className="mr-1" />
-              Add More Category/Subject/Topic
-            </button>
-            {additionalDetails.length > 0 && (
-              <div className="mt-4 space-y-2">
-                <h4 className="text-sm font-medium text-gray-700">Additional Classifications:</h4>
-                {additionalDetails.map((detail, index) => (
-                  <div key={index} className="flex items-center p-2 bg-blue-50 border border-blue-200 rounded-md text-sm">
-                    <span className="flex-1">
-                      {detail.category} / {detail.subject} / {detail.topic}
-                    </span>
+            <label className="block text-gray-700 font-medium mb-2">
+              Select Topics (Click to select/deselect)
+            </label>
+            {formData.subjects.map(subject => (
+              <div key={subject.name} className="mb-4">
+                <h4 className="text-md font-semibold text-gray-700 mb-2">{subject.name}</h4>
+                <div className="flex flex-wrap gap-2">
+                  {(topicsBySubject[subject.name] || []).map((topic) => (
                     <button
                       type="button"
-                      onClick={() => handleRemoveDetail(index)}
-                      className="ml-2 p-1 text-gray-500 hover:text-red-500"
-                      title="Remove classification"
+                      key={topic}
+                      onClick={() => handleTopicToggle(topic, subject.name)}
+                      className={`py-2 px-4 rounded text-sm font-medium border ${
+                        subject.topics.includes(topic)
+                          ? 'bg-green-500 text-white border-green-500'
+                          : 'bg-green-50 text-green-700 border-green-200 hover:bg-green-100'
+                      }`}
                     >
-                      <X size={16} />
+                      {topic}
                     </button>
-                  </div>
-                ))}
+                  ))}
+                </div>
               </div>
-            )}
+            ))}
           </div>
         )}
+        
+        {/* Tags */}
+        <div className="mb-6">
+          <label className="block text-gray-700 font-medium mb-2">Tags (Optional)</label>
+          <div className="flex items-center mb-2">
+            <input
+              type="text"
+              value={currentTag}
+              onChange={(e) => setCurrentTag(e.target.value)}
+              onKeyPress={handleKeyPress}
+              className="flex-grow px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              placeholder="Add a tag and press Enter..."
+            />
+            <button
+              type="button"
+              onClick={handleAddTag}
+              className="ml-2 px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+            >
+              Add
+            </button>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {formData.tags.map((tag, index) => (
+              <div
+                key={index}
+                className="flex items-center px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-sm"
+              >
+                {tag}
+                <button
+                  type="button"
+                  onClick={() => handleRemoveTag(tag)}
+                  className="ml-2 text-gray-600 hover:text-red-600"
+                >
+                  <X size={14} />
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
         
         {/* Source URL */}
         <div className="mb-6">
@@ -1090,7 +939,7 @@ const EnhancedCreateQuestionForm = ({ onQuestionCreated = () => {} }) => {
                 : 'bg-blue-600 hover:bg-blue-700'
             } text-white font-medium`}
           >
-            {isSubmitting ? 'Creating...' : `Create Question${additionalDetails.length > 0 ? 's' : ''}`}
+            {isSubmitting ? 'Creating...' : 'Create Question'}
           </button>
         </div>
       </form>

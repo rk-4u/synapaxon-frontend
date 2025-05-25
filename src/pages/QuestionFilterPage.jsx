@@ -12,7 +12,7 @@ export default function QuestionFilterPage() {
   const [categoryCounts, setCategoryCounts] = useState({});
   const [subjectCounts, setSubjectCounts] = useState({});
   const [topicCounts, setTopicCounts] = useState({});
-  const [difficulty, setDifficulty] = useState("medium");
+  const [difficulty, setDifficulty] = useState("all");
   const [useTimer, setUseTimer] = useState(false);
   const [testDuration] = useState("90");
   const [numberOfItems, setNumberOfItems] = useState(5);
@@ -20,6 +20,9 @@ export default function QuestionFilterPage() {
   const [questions, setQuestions] = useState([]);
   const [activeSubject, setActiveSubject] = useState(null);
   const [questionStatusFilter, setQuestionStatusFilter] = useState("all");
+  const [page, setPage] = useState(1);
+  const [limit] = useState(150);
+  const [totalQuestions, setTotalQuestions] = useState(0);
   const token = localStorage.getItem("token");
 
   // Reset subjects and topics when top-level filters change
@@ -27,7 +30,16 @@ export default function QuestionFilterPage() {
     setSelectedSubjects(new Set());
     setSelectedTopics(new Map());
     setActiveSubject(null);
+    setPage(1);
   }, [questionStatusFilter, difficulty, selectedCategory]);
+
+  // Normalize StudentQuestion subjects to match Question schema
+  const normalizeStudentQuestion = (sq) => ({
+    ...sq.question,
+    _id: sq.question._id,
+    subjects: sq.subjects.map(name => ({ name, topics: sq.topics || [] })), // Transform [String] to [{ name, topics }]
+    topics: undefined, // Remove top-level topics
+  });
 
   // Fetch counts for categories, subjects, and topics
   const fetchCounts = async () => {
@@ -36,124 +48,141 @@ export default function QuestionFilterPage() {
     const topicCountMap = {};
 
     try {
-      await Promise.all(
-        categories.map(async (cat) => {
-          try {
-            const historyRes = await axios.get(
-              `/api/student-questions/history?category=${cat.name}&difficulty=${difficulty}`,
-              { headers: { Authorization: `Bearer ${token}` } }
-            );
-            const historyQuestions = historyRes.data.data || [];
-            const allQuestionsRes = await axios.get(
-              `/api/questions?category=${cat.name}&difficulty=${difficulty}`,
-              { headers: { Authorization: `Bearer ${token}` } }
-            );
-            const allQuestions = allQuestionsRes.data.data || [];
+      // Initialize counts for all categories
+      categories.forEach((cat) => {
+        categoryCountMap[cat.name] = { all: 0, correct: 0, incorrect: 0, unattempted: 0, flagged: 0 };
+      });
 
-            const correctIds = historyQuestions
-              .filter((q) => q.isCorrect)
-              .map((q) => q.question.toString());
-            const incorrectIds = historyQuestions
-              .filter((q) => !q.isCorrect && q.selectedAnswer !== -1)
-              .map((q) => q.question.toString());
-            const flaggedIds = historyQuestions
-              .filter((q) => q.selectedAnswer === -1)
-              .map((q) => q.question.toString());
-            const allIds = allQuestions.map((q) => q._id.toString());
-            const unattemptedIds = allIds.filter((id) => !correctIds.includes(id) && !incorrectIds.includes(id) && !flaggedIds.includes(id));
+      // Build API query for history
+      const historyQuery = `/api/student-questions/history?category=${selectedCategory}${
+        difficulty !== "all" ? `&difficulty=${difficulty}` : ""
+      }&page=${page}&limit=${limit}`;
+      const historyRes = await axios.get(historyQuery, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const historyQuestions = (historyRes.data.data || []).map(normalizeStudentQuestion);
+      const totalHistory = historyRes.data.total || 0;
 
-            categoryCountMap[cat.name] = {
-              all: allQuestions.length,
-              correct: correctIds.length,
-              incorrect: incorrectIds.length,
-              unattempted: unattemptedIds.length,
-              flagged: flaggedIds.length,
-            };
+      // Build API query for all questions
+      const questionsQuery = `/api/questions?category=${selectedCategory}&createdBy=me${
+        difficulty !== "all" ? `&difficulty=${difficulty}` : ""
+      }&page=${page}&limit=${limit}`;
+      const allQuestionsRes = await axios.get(questionsQuery, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const allQuestions = allQuestionsRes.data.data || [];
+      const totalAllQuestions = allQuestionsRes.data.total || 0;
 
-            if (cat.name === selectedCategory) {
-              const subjects = subjectsByCategory[selectedCategory] || [];
-              await Promise.all(
-                subjects.map(async (subject) => {
-                  try {
-                    const subjectQuestions = allQuestions.filter((q) => q.subject === subject);
-                    const subjectHistory = historyQuestions.filter((q) => q.subject === subject);
-                    const subjectCorrectIds = subjectHistory
-                      .filter((q) => q.isCorrect)
-                      .map((q) => q.question.toString());
-                    const subjectIncorrectIds = subjectHistory
-                      .filter((q) => !q.isCorrect && q.selectedAnswer !== -1)
-                      .map((q) => q.question.toString());
-                    const subjectFlaggedIds = subjectHistory
-                      .filter((q) => q.selectedAnswer === -1)
-                      .map((q) => q.question.toString());
-                    const subjectAllIds = subjectQuestions.map((q) => q._id.toString());
-                    const subjectUnattemptedIds = subjectAllIds.filter(
-                      (id) => !subjectCorrectIds.includes(id) && !subjectIncorrectIds.includes(id) && !subjectFlaggedIds.includes(id)
-                    );
-
-                    subjectCountMap[subject] =
-                      questionStatusFilter === "all"
-                        ? subjectQuestions.length
-                        : questionStatusFilter === "correct"
-                        ? subjectCorrectIds.length
-                        : questionStatusFilter === "incorrect"
-                        ? subjectIncorrectIds.length
-                        : questionStatusFilter === "unattempted"
-                        ? subjectUnattemptedIds.length
-                        : subjectFlaggedIds.length;
-
-                    const topics = topicsBySubject[subject] || [];
-                    topics.forEach((topic) => {
-                      const topicQuestions = subjectQuestions.filter((q) => q.topic === topic);
-                      const topicHistory = subjectHistory.filter((q) => q.topic === topic);
-                      const topicCorrectIds = topicHistory
-                        .filter((q) => q.isCorrect)
-                        .map((q) => q.question.toString());
-                      const topicIncorrectIds = topicHistory
-                        .filter((q) => !q.isCorrect && q.selectedAnswer !== -1)
-                        .map((q) => q.question.toString());
-                      const topicFlaggedIds = topicHistory
-                        .filter((q) => q.selectedAnswer === -1)
-                        .map((q) => q.question.toString());
-                      const topicAllIds = topicQuestions.map((q) => q._id.toString());
-                      const topicUnattemptedIds = topicAllIds.filter(
-                        (id) => !topicCorrectIds.includes(id) && !topicIncorrectIds.includes(id) && !topicFlaggedIds.includes(id)
-                      );
-
-                      topicCountMap[`${subject}||${topic}`] =
-                        questionStatusFilter === "all"
-                          ? topicQuestions.length
-                          : questionStatusFilter === "correct"
-                          ? topicCorrectIds.length
-                          : questionStatusFilter === "incorrect"
-                          ? topicIncorrectIds.length
-                          : questionStatusFilter === "unattempted"
-                          ? topicUnattemptedIds.length
-                          : topicFlaggedIds.length;
-                    });
-                  } catch (err) {
-                    subjectCountMap[subject] = 0;
-                    (topicsBySubject[subject] || []).forEach(
-                      (topic) => (topicCountMap[`${subject}||${topic}`] = 0)
-                    );
-                  }
-                })
-              );
-            }
-          } catch (err) {
-            categoryCountMap[cat.name] = { all: 0, correct: 0, incorrect: 0, unattempted: 0, flagged: 0 };
-          }
-        })
+      // Compute status counts
+      const correctIds = historyQuestions
+        .filter((q) => q.isCorrect)
+        .map((q) => q._id.toString());
+      const incorrectIds = historyQuestions
+        .filter((q) => !q.isCorrect && q.selectedAnswer !== -1)
+        .map((q) => q._id.toString());
+      const flaggedIds = historyQuestions
+        .filter((q) => q.selectedAnswer === -1)
+        .map((q) => q._id.toString());
+      const allIds = allQuestions.map((q) => q._id.toString());
+      const unattemptedIds = allIds.filter(
+        (id) => !correctIds.includes(id) && !incorrectIds.includes(id) && !flaggedIds.includes(id)
       );
+
+      categoryCountMap[selectedCategory] = {
+        all: totalAllQuestions,
+        correct: correctIds.length,
+        incorrect: incorrectIds.length,
+        unattempted: unattemptedIds.length,
+        flagged: flaggedIds.length,
+      };
+
+      // Derive subjects from questions
+      const subjects = [...new Set(allQuestions.flatMap((q) => q.subjects.map(s => s.name)))].filter((s) =>
+        (subjectsByCategory[selectedCategory] || []).includes(s)
+      );
+
+      subjects.forEach((subject) => {
+        const subjectQuestions = allQuestions.filter((q) => q.subjects.some(s => s.name === subject));
+        const subjectHistory = historyQuestions.filter((q) => q.subjects.some(s => s.name === subject));
+        const subjectCorrectIds = subjectHistory
+          .filter((q) => q.isCorrect)
+          .map((q) => q._id.toString());
+        const subjectIncorrectIds = subjectHistory
+          .filter((q) => !q.isCorrect && q.selectedAnswer !== -1)
+          .map((q) => q._id.toString());
+        const subjectFlaggedIds = subjectHistory
+          .filter((q) => q.selectedAnswer === -1)
+          .map((q) => q._id.toString());
+        const subjectAllIds = subjectQuestions.map((q) => q._id.toString());
+        const subjectUnattemptedIds = subjectAllIds.filter(
+          (id) =>
+            !subjectCorrectIds.includes(id) &&
+            !subjectIncorrectIds.includes(id) &&
+            !subjectFlaggedIds.includes(id)
+        );
+
+        subjectCountMap[subject] =
+          questionStatusFilter === "all"
+            ? subjectQuestions.length
+            : questionStatusFilter === "correct"
+            ? subjectCorrectIds.length
+            : questionStatusFilter === "incorrect"
+            ? subjectIncorrectIds.length
+            : questionStatusFilter === "unattempted"
+            ? subjectUnattemptedIds.length
+            : subjectFlaggedIds.length;
+
+        // Derive topics for this subject
+        const topics = [...new Set(subjectQuestions.flatMap((q) => 
+          q.subjects.find(s => s.name === subject)?.topics || []
+        ))].filter((t) => (topicsBySubject[subject] || []).includes(t));
+        topics.forEach((topic) => {
+          const topicQuestions = subjectQuestions.filter((q) => 
+            q.subjects.some(s => s.name === subject && s.topics.includes(topic))
+          );
+          const topicHistory = subjectHistory.filter((q) => 
+            q.subjects.some(s => s.name === subject && s.topics.includes(topic))
+          );
+          const topicCorrectIds = topicHistory
+            .filter((q) => q.isCorrect)
+            .map((q) => q._id.toString());
+          const topicIncorrectIds = topicHistory
+            .filter((q) => !q.isCorrect && q.selectedAnswer !== -1)
+            .map((q) => q._id.toString());
+          const topicFlaggedIds = topicHistory
+            .filter((q) => q.selectedAnswer === -1)
+            .map((q) => q._id.toString());
+          const topicAllIds = topicQuestions.map((q) => q._id.toString());
+          const topicUnattemptedIds = topicAllIds.filter(
+            (id) =>
+              !topicCorrectIds.includes(id) &&
+              !topicIncorrectIds.includes(id) &&
+              !topicFlaggedIds.includes(id)
+          );
+
+          topicCountMap[`${subject}||${topic}`] =
+            questionStatusFilter === "all"
+              ? topicQuestions.length
+              : questionStatusFilter === "correct"
+              ? topicCorrectIds.length
+              : questionStatusFilter === "incorrect"
+              ? topicIncorrectIds.length
+              : questionStatusFilter === "unattempted"
+              ? topicUnattemptedIds.length
+              : topicFlaggedIds.length;
+        });
+      });
 
       setCategoryCounts(categoryCountMap);
       setSubjectCounts(subjectCountMap);
       setTopicCounts(topicCountMap);
+      setTotalQuestions(totalAllQuestions);
     } catch (err) {
       console.error("Error fetching counts:", err);
-      setCategoryCounts({});
+      setCategoryCounts(categoryCountMap);
       setSubjectCounts({});
       setTopicCounts({});
+      setTotalQuestions(0);
     }
   };
 
@@ -162,11 +191,18 @@ export default function QuestionFilterPage() {
     let result = questions;
 
     if (selectedSubjects.size > 0) {
-      result = result.filter((q) => selectedSubjects.has(q.subject));
+      result = result.filter((q) =>
+        Array.from(selectedSubjects).some((subject) => q.subjects.some(s => s.name === subject))
+      );
       if (selectedTopics.size > 0) {
         result = result.filter((q) => {
-          const subjectTopics = selectedTopics.get(q.subject) || [];
-          return subjectTopics.length === 0 || subjectTopics.includes(q.topic);
+          const subjectTopics = Array.from(selectedTopics.entries()).flatMap(([subject, topics]) =>
+            topics.map((topic) => ({ subject, topic }))
+          );
+          return subjectTopics.some(
+            ({ subject, topic }) => 
+              q.subjects.some(s => s.name === subject && s.topics.includes(topic))
+          );
         });
       }
     }
@@ -180,57 +216,60 @@ export default function QuestionFilterPage() {
       setIsLoading(true);
       let allQuestions = [];
 
+      const queryParams = `/api/student-questions/history?category=${selectedCategory}${
+        difficulty !== "all" ? `&difficulty=${difficulty}` : ""
+      }&page=${page}&limit=${limit}`;
+
       if (questionStatusFilter === "correct") {
-        const res = await axios.get(
-          `/api/student-questions/history?category=${selectedCategory}&difficulty=${difficulty}&isCorrect=true`,
-          { headers: { Authorization: `Bearer ${token}` } }
-        );
-        allQuestions = res.data.data || [];
+        const res = await axios.get(`${queryParams}&isCorrect=true`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        allQuestions = res.data.data.map(normalizeStudentQuestion);
+        setTotalQuestions(res.data.total);
       } else if (questionStatusFilter === "incorrect") {
-        const res = await axios.get(
-          `/api/student-questions/history?category=${selectedCategory}&difficulty=${difficulty}&isCorrect=false&flagged=false`,
-          { headers: { Authorization: `Bearer ${token}` } }
-        );
-        allQuestions = res.data.data || [];
+        const res = await axios.get(`${queryParams}&isCorrect=false&flagged=false`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        allQuestions = res.data.data.map(normalizeStudentQuestion);
+        setTotalQuestions(res.data.total);
       } else if (questionStatusFilter === "flagged") {
-        const res = await axios.get(
-          `/api/student-questions/history?category=${selectedCategory}&difficulty=${difficulty}&flagged=true`,
-          { headers: { Authorization: `Bearer ${token}` } }
-        );
-        allQuestions = res.data.data || [];
+        const res = await axios.get(`${queryParams}&flagged=true`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        allQuestions = res.data.data.map(normalizeStudentQuestion);
+        setTotalQuestions(res.data.total);
       } else if (questionStatusFilter === "unattempted") {
         const allQuestionsRes = await axios.get(
-          `/api/questions?category=${selectedCategory}&difficulty=${difficulty}`,
+          `/api/questions?category=${selectedCategory}&createdBy=me${
+            difficulty !== "all" ? `&difficulty=${difficulty}` : ""
+          }&page=${page}&limit=${limit}`,
           { headers: { Authorization: `Bearer ${token}` } }
         );
-        const historyRes = await axios.get(
-          `/api/student-questions/history?category=${selectedCategory}&difficulty=${difficulty}`,
-          { headers: { Authorization: `Bearer ${token}` } }
-        );
+        const historyRes = await axios.get(queryParams, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
         const allAvailableQuestions = allQuestionsRes.data.data || [];
         const historyQuestions = historyRes.data.data || [];
-        const attemptedIds = historyQuestions
-          .filter((q) => q.selectedAnswer !== -1)
-          .map((q) => q.question.toString());
-        const flaggedIds = historyQuestions
-          .filter((q) => q.selectedAnswer === -1)
-          .map((q) => q.question.toString());
-        const allIds = allAvailableQuestions.map((q) => q._id.toString());
-        const unattemptedIds = allIds.filter((id) => !attemptedIds.includes(id) && !flaggedIds.includes(id));
-        allQuestions = allAvailableQuestions.filter((q) => unattemptedIds.includes(q._id.toString()));
+        const historyIds = historyQuestions.map((q) => q.question._id.toString());
+        allQuestions = allAvailableQuestions.filter((q) => !historyIds.includes(q._id.toString()));
+        setTotalQuestions(allQuestionsRes.data.total - historyQuestions.length);
       } else {
         // questionStatusFilter === "all"
         const res = await axios.get(
-          `/api/questions?category=${selectedCategory}&difficulty=${difficulty}`,
+          `/api/questions?category=${selectedCategory}&createdBy=me${
+            difficulty !== "all" ? `&difficulty=${difficulty}` : ""
+          }&page=${page}&limit=${limit}`,
           { headers: { Authorization: `Bearer ${token}` } }
         );
         allQuestions = res.data.data || [];
+        setTotalQuestions(res.data.total);
       }
 
       setQuestions(allQuestions);
     } catch (err) {
       console.error("Error fetching questions:", err);
       setQuestions([]);
+      setTotalQuestions(0);
     } finally {
       setIsLoading(false);
     }
@@ -241,7 +280,7 @@ export default function QuestionFilterPage() {
       fetchCounts();
       fetchQuestions();
     }
-  }, [questionStatusFilter, difficulty, selectedCategory]);
+  }, [questionStatusFilter, difficulty, selectedCategory, page]);
 
   const toggleSubject = (subject) => {
     setSelectedSubjects((prev) => {
@@ -270,6 +309,9 @@ export default function QuestionFilterPage() {
       } else {
         newTopics.set(subject, [...subjectTopics, topic]);
       }
+      if (newTopics.get(subject).length === 0) {
+        newTopics.delete(subject);
+      }
       return newTopics;
     });
   };
@@ -282,8 +324,7 @@ export default function QuestionFilterPage() {
 
     setIsLoading(true);
     try {
-      // Clear sessionStorage to prevent stale data
-      sessionStorage.removeItem('testData');
+      sessionStorage.removeItem("testData");
 
       const shuffledQuestions = [...filteredQuestions].sort(() => Math.random() - 0.5);
       const selectedQuestions = shuffledQuestions.slice(0, Math.min(numberOfItems, filteredQuestions.length));
@@ -291,20 +332,16 @@ export default function QuestionFilterPage() {
 
       const payload = {
         questionIds,
-        difficulty,
+        difficulty: difficulty === "all" ? undefined : difficulty,
         count: questionIds.length,
       };
 
-      const res = await axios.post(
-        "/api/tests",
-        payload,
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-            "Content-Type": "application/json",
-          },
-        }
-      );
+      const res = await axios.post("/api/tests", payload, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+      });
 
       if (!res.data.success) {
         throw new Error(res.data.message || "Failed to create test session.");
@@ -315,8 +352,6 @@ export default function QuestionFilterPage() {
         throw new Error("Invalid test session data: Missing testSessionId or questions.");
       }
 
-
-      // Prepare test data
       const testData = {
         testSessionId,
         questions: returnedQuestions,
@@ -324,19 +359,20 @@ export default function QuestionFilterPage() {
         selectedFilters: {
           category: selectedCategory,
           subjects: Array.from(selectedSubjects),
-          topics: Array.from(selectedTopics.entries()).reduce((acc, [subject, topics]) => ({
-            ...acc,
-            [subject]: topics,
-          }), {}),
+          topics: Array.from(selectedTopics.entries()).reduce(
+            (acc, [subject, topics]) => ({
+              ...acc,
+              [subject]: topics,
+            }),
+            {}
+          ),
           difficulty,
           questionStatus: questionStatusFilter,
         },
       };
 
-      // Store test data in sessionStorage
-      sessionStorage.setItem('testData', JSON.stringify(testData));
+      sessionStorage.setItem("testData", JSON.stringify(testData));
 
-      // Navigate to test runner
       navigate("/dashboard/test-runner", {
         state: testData,
       });
@@ -384,6 +420,7 @@ export default function QuestionFilterPage() {
             onChange={(e) => setDifficulty(e.target.value)}
             className="border border-gray-300 rounded px-3 py-2 w-full"
           >
+            <option value="all">All</option>
             <option value="easy">Easy</option>
             <option value="medium">Medium</option>
             <option value="hard">Hard</option>
@@ -451,7 +488,9 @@ export default function QuestionFilterPage() {
         {selectedSubjects.size > 0 && (
           <div className="bg-blue-50 rounded-lg p-6 mb-8">
             <h2 className="text-xl font-bold text-blue-600 mb-4">Select Topics (Optional)</h2>
-            <p className="text-sm text-gray-600 mb-4">Leave topics unselected to include all topics from selected subjects</p>
+            <p className="text-sm text-gray-600 mb-4">
+              Leave topics unselected to include all topics from selected subjects
+            </p>
             <div className="flex gap-4 mb-4">
               {Array.from(selectedSubjects).map((subject) => (
                 <button
@@ -512,7 +551,10 @@ export default function QuestionFilterPage() {
                     key={subject}
                     className="px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-sm"
                   >
-                    {subject}{selectedTopics.get(subject)?.length > 0 ? ` → ${selectedTopics.get(subject).join(", ")}` : ""}
+                    {subject}
+                    {selectedTopics.get(subject)?.length > 0
+                      ? ` → ${selectedTopics.get(subject).join(", ")}`
+                      : ""}
                   </span>
                 ))}
               </div>
@@ -533,32 +575,50 @@ export default function QuestionFilterPage() {
               </span>
             )}
           </p>
+          <div className="mt-4">
+            <button
+              onClick={() => setPage((prev) => Math.max(prev - 1, 1))}
+              disabled={page === 1}
+              className="px-4 py-2 bg-blue-500 text-white rounded disabled:bg-gray-300 mr-2"
+            >
+              Previous
+            </button>
+            <span>
+              Page {page} of {Math.ceil(totalQuestions / limit)}
+            </span>
+            <button
+              onClick={() => setPage((prev) => prev + 1)}
+              disabled={page >= Math.ceil(totalQuestions / limit)}
+              className="px-4 py-2 bg-blue-500 text-white rounded disabled:bg-gray-300 ml-2"
+            >
+              Next
+            </button>
+          </div>
         </div>
 
         <div className="mb-8">
           <h2 className="text-xl font-bold text-gray-800 mb-6">Test Configuration</h2>
           <div className="flex flex-col md:flex-row justify-between gap-8">
             <div className="flex items-center">
-  <button
-    onClick={() => setUseTimer(!useTimer)}
-    className={`ml-0 relative inline-block w-12 h-6 rounded-full transition-all duration-300 bg-gradient-to-r bg-[length:200%_100%] ${
-      useTimer
-        ? 'from-green-400 to-green-700 bg-right'
-        : 'from-gray-300 to-gray-500 bg-left'
-    }`}
-    aria-label="Toggle timer"
-  >
-    <span
-      className={`absolute top-0.5 w-5 h-5 rounded-full transition-all duration-300 bg-white shadow-md ${
-        useTimer ? 'left-[calc(100%-1.25rem-0.125rem)]' : 'left-0.5'
-      }`}
-    ></span>
-  </button>
-  <label htmlFor="timerCheckbox" className="ml-3 cursor-pointer">
-    Use 90 second timer
-  </label>
-</div>
-
+              <button
+                onClick={() => setUseTimer(!useTimer)}
+                className={`ml-0 relative inline-block w-12 h-6 rounded-full transition-all duration-300 bg-gradient-to-r bg-[length:200%_100%] ${
+                  useTimer
+                    ? "from-green-400 to-green-700 bg-right"
+                    : "from-gray-300 to-gray-500 bg-left"
+                }`}
+                aria-label="Toggle timer"
+              >
+                <span
+                  className={`absolute top-0.5 w-5 h-5 rounded-full transition-all duration-300 bg-white shadow-md ${
+                    useTimer ? "left-[calc(100%-1.25rem-0.125rem)]" : "left-0.5"
+                  }`}
+                ></span>
+              </button>
+              <label htmlFor="timerCheckbox" className="ml-3 cursor-pointer">
+                Use 90 second timer
+              </label>
+            </div>
 
             <div className="flex-1">
               <h3 className="font-medium text-gray-700 mb-4">Number of Items</h3>
@@ -568,7 +628,7 @@ export default function QuestionFilterPage() {
                 onChange={(e) => setNumberOfItems(parseInt(e.target.value) || 1)}
                 className="border border-gray-300 rounded px-3 py-2 w-24"
                 min="1"
-                max={filteredQuestions.length || 100}
+                max={filteredQuestions.length || 150}
               />
               {filteredQuestions.length > 0 && numberOfItems > filteredQuestions.length && (
                 <p className="text-sm text-orange-600 mt-1">
@@ -596,7 +656,9 @@ export default function QuestionFilterPage() {
                 : "bg-gray-200 text-gray-700 cursor-not-allowed"
             } px-8 py-2 rounded`}
           >
-            {isLoading ? "Starting..." : `Start Test (${Math.min(numberOfItems, filteredQuestions.length)} questions)`}
+            {isLoading
+              ? "Starting..."
+              : `Start Test (${Math.min(numberOfItems, filteredQuestions.length)} questions)`}
           </button>
         </div>
       </div>

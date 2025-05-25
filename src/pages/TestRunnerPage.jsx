@@ -3,6 +3,7 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import axios from '../api/axiosConfig';
 import { Menu, Clock, Flag, Check, ChevronLeft, ChevronRight, X, PlayCircle, PauseCircle } from 'lucide-react';
 import MediaDisplay from './MediaDisplay';
+import Calculator from './Calculator';
 
 const ErrorBoundary = ({ children }) => {
   const [hasError, setHasError] = useState(false);
@@ -54,6 +55,7 @@ const TestRunnerPage = () => {
   const [showHighlightMenu, setShowHighlightMenu] = useState(false);
   const [highlightPosition, setHighlightPosition] = useState({ x: 0, y: 0 });
   const [selectedText, setSelectedText] = useState('');
+  const [activeFeature, setActiveFeature] = useState('none'); // Track active feature: none, calculator, lab, chatgpt
   const highlightMenuRef = useRef(null);
 
   // Retrieve test data
@@ -237,94 +239,102 @@ const TestRunnerPage = () => {
   };
 
   // Submit question
-  const handleSubmitQuestion = async (autoSelectedAnswer = null) => {
-    const currentQuestion = questions[currentQuestionIndex];
-    const questionId = currentQuestion._id;
-    if (!testSessionId || !questionId) {
-      alert('Error: Test session or question ID is missing.');
-      return;
-    }
+ // Submit question
+const handleSubmitQuestion = async (autoSelectedAnswer = null) => {
+  const currentQuestion = questions[currentQuestionIndex];
+  const questionId = currentQuestion._id;
+  if (!testSessionId || !questionId) {
+    alert('Error: Test session or question ID is missing.');
+    return;
+  }
 
-    const userAnswer = userAnswers.find(a => a.questionId === questionId);
-    const selectedAnswer = autoSelectedAnswer !== null ? autoSelectedAnswer : (userAnswer?.selectedAnswer ?? -1);
-    const timeTaken = calculateTimeTaken();
+  const userAnswer = userAnswers.find(a => a.questionId === questionId);
+  const selectedAnswer = autoSelectedAnswer !== null ? autoSelectedAnswer : (userAnswer?.selectedAnswer ?? -1);
+  const timeTaken = calculateTimeTaken();
 
-    const payload = {
-      testSessionId,
-      questionId,
-      selectedAnswer,
-      timeTaken,
-    };
+  // Transform subjects and topics to match StudentQuestion schema
+  const subjects = currentQuestion.subjects?.map(s => s.name) || [];
+  const topics = currentQuestion.subjects?.flatMap(s => s.topics || []) || [];
 
-    setSubmitting(true);
-    try {
-      // Submit answer
-      const submitResponse = await axios.post('/api/student-questions/submit', payload, {
+  const payload = {
+    testSessionId,
+    questionId,
+    selectedAnswer,
+    subjects: subjects.length > 0 ? subjects : ['Unknown'], // Default if missing
+    topics: topics.length > 0 ? topics : [], // Empty array if no topics
+    timeTaken,
+  };
+
+  setSubmitting(true);
+  try {
+    // Submit answer
+    const submitResponse = await axios.post('/api/student-questions/submit', payload, {
+      headers: {
+        Authorization: `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+    });
+
+    if (submitResponse.data.success) {
+      setSubmittedQuestions(prev => {
+        if (!prev.includes(questionId)) {
+          return [...prev, questionId];
+        }
+        return prev;
+      });
+
+      // Fetch question details to get explanation, media, and correctAnswer
+      const questionResponse = await axios.get(`/api/questions/${questionId}`, {
         headers: {
           Authorization: `Bearer ${token}`,
-          'Content-Type': 'application/json',
         },
       });
 
-      if (submitResponse.data.success) {
-        setSubmittedQuestions(prev => {
-          if (!prev.includes(questionId)) {
-            return [...prev, questionId];
-          }
-          return prev;
+      if (questionResponse.data.success) {
+        const questionData = questionResponse.data.data;
+        // Update questions with fetched data
+        setQuestions(prev => {
+          const updated = [...prev];
+          updated[currentQuestionIndex] = {
+            ...currentQuestion,
+            explanation: questionData.explanation || 'No explanation available.',
+            explanationMedia: questionData.explanationMedia || [],
+            questionMedia: questionData.questionMedia || [],
+            options: questionData.options || currentQuestion.options,
+            correctAnswer: questionData.correctAnswer ?? currentQuestion.correctAnswer,
+            subjects: questionData.subjects || currentQuestion.subjects, // Preserve subjects
+          };
+          return updated;
         });
 
-        // Fetch question details to get explanation, media, and correctAnswer
-        const questionResponse = await axios.get(`/api/questions/${questionId}`, {
-          headers: {
-            Authorization: `Bearer ${token}`,
+        // Store submission result for feedback
+        setSubmissionResults(prev => ({
+          ...prev,
+          [questionId]: {
+            isCorrect: submitResponse.data.data.isCorrect,
+            selectedAnswer,
+            correctAnswer: questionData.correctAnswer ?? currentQuestion.correctAnswer,
+            options: questionData.options || currentQuestion.options,
           },
-        });
-
-        if (questionResponse.data.success) {
-          const questionData = questionResponse.data.data;
-          // Update questions with fetched data
-          setQuestions(prev => {
-            const updated = [...prev];
-            updated[currentQuestionIndex] = {
-              ...currentQuestion,
-              explanation: questionData.explanation || 'No explanation available.',
-              explanationMedia: questionData.explanationMedia || [],
-              questionMedia: questionData.questionMedia || [],
-              options: questionData.options || currentQuestion.options,
-              correctAnswer: questionData.correctAnswer ?? currentQuestion.correctAnswer,
-            };
-            return updated;
-          });
-
-          // Store submission result for feedback
-          setSubmissionResults(prev => ({
-            ...prev,
-            [questionId]: {
-              isCorrect: submitResponse.data.data.isCorrect,
-              selectedAnswer,
-              correctAnswer: questionData.correctAnswer ?? currentQuestion.correctAnswer,
-              options: questionData.options || currentQuestion.options,
-            },
-          }));
-        } else {
-          throw new Error(questionResponse.data.message || 'Failed to fetch question details.');
-        }
+        }));
       } else {
-        throw new Error(submitResponse.data.message || 'Submission failed.');
+        throw new Error(questionResponse.data.message || 'Failed to fetch question details.');
       }
-    } catch (err) {
-      console.error('Error submitting question:', err);
-      if (err.response?.status === 401) {
-        alert('Session expired. Please log in again.');
-        navigate('/login');
-      } else {
-        alert(`Submission failed: ${err.response?.data?.message || err.message || 'Please try again.'}`);
-      }
-    } finally {
-      setSubmitting(false);
+    } else {
+      throw new Error(submitResponse.data.message || 'Submission failed.');
     }
-  };
+  } catch (err) {
+    console.error('Error submitting question:', err);
+    if (err.response?.status === 401) {
+      alert('Session expired. Please log in again.');
+      navigate('/login');
+    } else {
+      alert(`Submission failed: ${err.response?.data?.message || err.message || 'Please try again.'}`);
+    }
+  } finally {
+    setSubmitting(false);
+  }
+};
 
   // Submit unanswered questions
   const submitUnansweredQuestions = async () => {
@@ -410,7 +420,7 @@ const TestRunnerPage = () => {
     }
   };
 
-  // Finalize test
+  // Final annunciatoize test
   const finalizeTest = async () => {
     try {
       setLoading(true);
@@ -971,7 +981,7 @@ const TestRunnerPage = () => {
           </div>
         </div>
 
-        {/* Explanation or Feature Buttons Area (37.5% width) */}
+        {/* Sidebar for Features (37.5% width) */}
         <div className="w-[37.5%] py-8 pl-4">
           {isQuestionSubmitted ? (
             <div className="bg-white rounded-lg shadow-lg p-6" onMouseUp={handleTextSelection}>
@@ -1005,25 +1015,68 @@ const TestRunnerPage = () => {
               )}
             </div>
           ) : (
-            <div className="flex flex-col space-y-4">
-              <button
-                className="px-6 py-2 bg-gray-200 text-gray-700 rounded hover:bg-gray-300"
-                onClick={() => alert('Open Lab feature coming soon!')}
-              >
-                Open Lab
-              </button>
-              <button
-                className="px-6 py-2 bg-gray-200 text-gray-700 rounded hover:bg-gray-300"
-                onClick={() => alert('Calculator feature coming soon!')}
-              >
-                Calculator
-              </button>
-              <button
-                className="px-6 py-2 bg-gray-200 text-gray-700 rounded hover:bg-gray-300"
-                onClick={() => alert('Chat GPT feature coming soon!')}
-              >
-                Chat GPT
-              </button>
+            <div className="bg-white rounded-lg shadow-lg p-6">
+              {/* Navigation Bar */}
+              <div className="flex space-x-2 mb-4">
+                <button
+                  onClick={() => setActiveFeature(activeFeature === 'lab' ? 'none' : 'lab')}
+                  className={`flex-1 px-3 py-2 rounded text-sm ${
+                    activeFeature === 'lab' ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                  }`}
+                >
+                  Open Lab
+                </button>
+                <button
+                  onClick={() => setActiveFeature(activeFeature === 'calculator' ? 'none' : 'calculator')}
+                  className={`flex-1 px-3 py-2 rounded text-sm ${
+                    activeFeature === 'calculator' ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                  }`}
+                >
+                  Calculator
+                </button>
+                <button
+                  onClick={() => setActiveFeature(activeFeature === 'chatgpt' ? 'none' : 'chatgpt')}
+                  className={`flex-1 px-3 py-2 rounded text-sm ${
+                    activeFeature === 'chatgpt' ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                  }`}
+                >
+                  Chat GPT
+                </button>
+              </div>
+
+              {/* Feature Content */}
+              {activeFeature === 'calculator' ? (
+                <Calculator onClose={() => setActiveFeature('none')} />
+              ) : activeFeature === 'lab' ? (
+                <div className="text-center p-4">
+                  <p className="text-gray-700">Open Lab feature coming soon!</p>
+                </div>
+              ) : activeFeature === 'chatgpt' ? (
+                <div className="text-center p-4">
+                  <p className="text-gray-700">Chat GPT feature coming soon!</p>
+                </div>
+              ) : (
+                <div className="flex flex-col space-y-4">
+                  <button
+                    onClick={() => setActiveFeature('lab')}
+                    className="px-6 py-2 bg-gray-200 text-gray-700 rounded hover:bg-gray-300"
+                  >
+                    Open Lab
+                  </button>
+                  <button
+                    onClick={() => setActiveFeature('calculator')}
+                    className="px-6 py-2 bg-gray-200 text-gray-700 rounded hover:bg-gray-300"
+                  >
+                    Calculator
+                  </button>
+                  <button
+                    onClick={() => setActiveFeature('chatgpt')}
+                    className="px-6 py-2 bg-gray-200 text-gray-700 rounded hover:bg-gray-300"
+                  >
+                    Chat GPT
+                  </button>
+                </div>
+              )}
             </div>
           )}
         </div>

@@ -25,7 +25,7 @@ const MyCreatedQuestionsPage = () => {
         }
 
         const response = await fetch(
-          `https://synapaxon-backend.onrender.com/api/questions?createdBy=me&page=${pagination.current}&limit=${pagination.limit}`,
+          `http://localhost:8000/api/questions?createdBy=me&page=${pagination.current}&limit=${pagination.limit}`,
           {
             headers: {
               Authorization: `Bearer ${token}`,
@@ -75,7 +75,7 @@ const MyCreatedQuestionsPage = () => {
   const handleRequestEdit = async (questionId) => {
     try {
       const response = await fetch(
-        `https://synapaxon-backend.onrender.com/api/questions/${questionId}/request-edit`,
+        `http://localhost:8000/api/questions/${questionId}/request-edit`,
         {
           method: "POST",
           headers: {
@@ -104,7 +104,7 @@ const MyCreatedQuestionsPage = () => {
 
     try {
       const response = await fetch(
-        `https://synapaxon-backend.onrender.com/api/questions/${questionId}/request-delete`,
+        `http://localhost:8000/api/questions/${questionId}/request-delete`,
         {
           method: "POST",
           headers: {

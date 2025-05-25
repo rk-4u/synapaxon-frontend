@@ -60,7 +60,7 @@ const TestHistoryPage = () => {
         }
 
         const response = await fetch(
-          `https://synapaxon-backend.onrender.com/api/tests?page=${pagination.current}&limit=${pagination.limit}`,
+          `http://localhost:8000/api/tests?page=${pagination.current}&limit=${pagination.limit}`,
           {
             headers: {
               Authorization: `Bearer ${token}`,
