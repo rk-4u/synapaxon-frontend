@@ -25,7 +25,7 @@ const AttemptedQuestionsPage = () => {
   const fetchQuestions = async () => {
     try {
       setLoading(true);
-      let url = `http://localhost:8000/api/student-questions/history?page=${pagination.current}&limit=${pagination.limit}`;
+      let url = `https://synapaxon-backend.onrender.com/api/student-questions/history?page=${pagination.current}&limit=${pagination.limit}`;
       if (questionStatusFilter === "correct") url += "&isCorrect=true";
       if (questionStatusFilter === "incorrect") url += "&isCorrect=false&flagged=false";
       if (difficulty) url += `&difficulty=${difficulty}`;
@@ -49,7 +49,7 @@ const AttemptedQuestionsPage = () => {
       const detailsPromises = data.data.map(async (q) => {
         try {
           const detailRes = await fetch(
-            `http://localhost:8000/api/questions/${q.question?._id || q._id}`,
+            `https://synapaxon-backend.onrender.com/api/questions/${q.question?._id || q._id}`,
             { headers: { Authorization: `Bearer ${token}` } }
           );
           return detailRes.ok
@@ -70,19 +70,19 @@ const AttemptedQuestionsPage = () => {
   const fetchCounts = async () => {
     try {
       const allRes = await fetch(
-        `http://localhost:8000/api/student-questions/history?${difficulty ? `difficulty=${difficulty}&` : ""}${
+        `https://synapaxon-backend.onrender.com/api/student-questions/history?${difficulty ? `difficulty=${difficulty}&` : ""}${
           selectedCategory ? `category=${selectedCategory}&` : ""
         }${selectedSubject ? `subject=${selectedSubject}&` : ""}${selectedTopic ? `topic=${selectedTopic}` : ""}`,
         { headers: { Authorization: `Bearer ${token}` } }
       );
       const correctRes = await fetch(
-        `http://localhost:8000/api/student-questions/history?isCorrect=true${difficulty ? `&difficulty=${difficulty}` : ""}${
+        `https://synapaxon-backend.onrender.com/api/student-questions/history?isCorrect=true${difficulty ? `&difficulty=${difficulty}` : ""}${
           selectedCategory ? `&category=${selectedCategory}` : ""
         }${selectedSubject ? `&subject=${selectedSubject}` : ""}${selectedTopic ? `&topic=${selectedTopic}` : ""}`,
         { headers: { Authorization: `Bearer ${token}` } }
       );
       const incorrectRes = await fetch(
-        `http://localhost:8000/api/student-questions/history?isCorrect=false&flagged=false${
+        `https://synapaxon-backend.onrender.com/api/student-questions/history?isCorrect=false&flagged=false${
           difficulty ? `&difficulty=${difficulty}` : ""
         }${selectedCategory ? `&category=${selectedCategory}` : ""}${selectedSubject ? `&subject=${selectedSubject}` : ""}${
           selectedTopic ? `&topic=${selectedTopic}` : ""

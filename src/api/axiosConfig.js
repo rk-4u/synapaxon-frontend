@@ -1,36 +1,36 @@
-// src/api/axiosConfig.js - Optional setup file
+// src/api/axiosConfig.js
 import axios from 'axios';
 
-// Base URL setup - adjust as needed
-axios.defaults.baseURL = 'http://localhost:8000';
+const instance = axios.create({
+  baseURL: import.meta.env.VITE_API_URL || 'https://synapaxon-backend.onrender.com',
+  timeout: 10000,
+});
 
-// Request interceptor - automatically add token
-axios.interceptors.request.use(
-  config => {
+instance.interceptors.request.use(
+  (config) => {
     const token = localStorage.getItem('token');
     if (token) {
       config.headers['Authorization'] = `Bearer ${token}`;
     }
     return config;
   },
-  error => {
-    return Promise.reject(error);
-  }
+  (error) => Promise.reject(error)
 );
 
-// Response interceptor - handle common errors
-axios.interceptors.response.use(
-  response => response,
-  error => {
-    // Handle 401 Unauthorized - redirect to login
-    if (error.response && error.response.status === 401) {
+instance.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    if (error.response?.status === 401 && window.location.pathname !== '/login') {
       localStorage.removeItem('token');
-      if (window.location.pathname !== '/login') {
-        window.location.href = '/login';
-      }
+      localStorage.removeItem('userId');
+      localStorage.removeItem('username');
+      localStorage.removeItem('email');
+      localStorage.removeItem('role');
+      localStorage.removeItem('plan');
+      window.location.href = '/login';
     }
     return Promise.reject(error);
   }
 );
 
-export default axios;
+export default instance;

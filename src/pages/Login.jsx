@@ -1,5 +1,7 @@
-import React, { useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+
+// src/pages/Login.jsx
+import React, { useState, useEffect } from 'react';
+import { useNavigate, Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 
 function Login() {
@@ -9,7 +11,15 @@ function Login() {
   const [loading, setLoading] = useState(false);
   const [validationErrors, setValidationErrors] = useState({});
   const navigate = useNavigate();
-  const { login } = useAuth();
+  const location = useLocation();
+  const { login, googleLogin } = useAuth();
+
+  // Check for error from Google auth callback
+  useEffect(() => {
+    if (location.state?.error) {
+      setError(location.state.error);
+    }
+  }, [location.state]);
 
   function validate() {
     const errors = {};
@@ -31,18 +41,22 @@ function Login() {
 
     setLoading(true);
     try {
-      // login() now returns response.data, which includes { token, user }
       const data = await login(email, password);
-
-      // check role and navigate accordingly
-      if (data.user.role === 'admin') {
-        navigate('/admin');
-      } else {
-        navigate('/dashboard');
-      }
+      navigate(data.user.role === 'admin' ? '/admin' : '/dashboard');
     } catch (err) {
       setError(err.response?.data?.message || 'Failed to login');
     } finally {
+      setLoading(false);
+    }
+  }
+
+  async function handleGoogleLogin() {
+    setLoading(true);
+    setError('');
+    try {
+      await googleLogin();
+    } catch (err) {
+      setError('Failed to initiate Google authentication');
       setLoading(false);
     }
   }
@@ -109,6 +123,24 @@ function Login() {
             {loading ? 'Logging in...' : 'Login'}
           </button>
         </form>
+
+        <div className="mt-4">
+          <button
+            onClick={handleGoogleLogin}
+            disabled={loading}
+            className={`w-full py-3 bg-red-600 text-white font-semibold rounded-md hover:bg-red-700 transition flex items-center justify-center ${
+              loading ? 'opacity-60 cursor-not-allowed' : ''
+            }`}
+          >
+            <svg className="w-5 h-5 mr-2" viewBox="0 0 24 24">
+              <path
+                fill="currentColor"
+                d="M12.545,10.239v3.821h5.445c-0.712,2.315-2.647,3.972-5.445,3.972c-3.332,0-6.033-2.701-6.033-6.032s2.701-6.032,6.033-6.032c1.498,0,2.866,0.549,3.921,1.453l2.814-2.814C17.503,2.988,15.139,2,12.545,2C7.021,2,2.543,6.477,2.543,12s4.478,10,10.002,10c8.396,0,10.249-7.85,9.426-11.748L12.545,10.239z"
+              />
+            </svg>
+            {loading ? 'Processing...' : 'Sign in with Google'}
+          </button>
+        </div>
 
         <p className="mt-6 text-center text-gray-600">
           Don't have an account?{' '}

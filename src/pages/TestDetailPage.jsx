@@ -65,7 +65,7 @@ const TestDetailPage = () => {
 
         // Fetch test session details
         const sessionResponse = await fetch(
-          `http://localhost:8000/api/tests/${testId}`,
+          `https://synapaxon-backend.onrender.com/api/tests/${testId}`,
           {
             headers: {
               Authorization: `Bearer ${token}`,
@@ -92,7 +92,7 @@ const TestDetailPage = () => {
         }
 
         const questionsResponse = await fetch(
-          `http://localhost:8000/api/student-questions/history/${testId}?${query}`,
+          `https://synapaxon-backend.onrender.com/api/student-questions/history/${testId}?${query}`,
           {
             headers: {
               Authorization: `Bearer ${token}`,
@@ -134,7 +134,7 @@ const TestDetailPage = () => {
 
         // Fetch analytics data
         const allQuestionsResponse = await fetch(
-          `http://localhost:8000/api/student-questions/history/${testId}`,
+          `https://synapaxon-backend.onrender.com/api/student-questions/history/${testId}`,
           {
             headers: {
               Authorization: `Bearer ${token}`,
@@ -204,7 +204,7 @@ const TestDetailPage = () => {
           async (question) => {
             try {
               const response = await fetch(
-                `http://localhost:8000/api/questions/${question.question?._id}`,
+                `https://synapaxon-backend.onrender.com/api/questions/${question.question?._id}`,
                 {
                   headers: {
                     Authorization: `Bearer ${token}`,
