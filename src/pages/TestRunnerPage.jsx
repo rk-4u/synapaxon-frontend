@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import axios from '../api/axiosConfig';
-import { Menu, Clock, Flag, Check, ChevronLeft, ChevronRight, X, PlayCircle, PauseCircle } from 'lucide-react';
+import { Menu, Clock, Flag, Check, ChevronLeft, ChevronRight, X, PlayCircle, PauseCircle, MessageSquare, Calculator as CalculatorIcon, Beaker, Sun, Moon } from 'lucide-react';
 import MediaDisplay from './MediaDisplay';
 import Calculator from './Calculator';
 
@@ -13,7 +13,7 @@ const ErrorBoundary = ({ children }) => {
   }, [children]);
 
   if (hasError) {
-    return <p className="text-red-500">Error loading media. Please try again.</p>;
+    return <p className="text-red-500 dark:text-red-400">Error loading media. Please try again.</p>;
   }
 
   return (
@@ -55,8 +55,25 @@ const TestRunnerPage = () => {
   const [showHighlightMenu, setShowHighlightMenu] = useState(false);
   const [highlightPosition, setHighlightPosition] = useState({ x: 0, y: 0 });
   const [selectedText, setSelectedText] = useState('');
-  const [activeFeature, setActiveFeature] = useState('none'); // Track active feature: none, calculator, lab, chatgpt
+  const [activeFeature, setActiveFeature] = useState('none');
+  const [isDarkMode, setIsDarkMode] = useState(localStorage.getItem('theme') === 'dark');
+  const [explanationPosition, setExplanationPosition] = useState('side');
   const highlightMenuRef = useRef(null);
+
+  // Highlight color maps for light and dark modes
+  const lightHighlightColors = {
+    yellow: '#fef9c3',
+    green: '#d1fae5',
+    pink: '#fce7f3',
+    blue: '#dbeafe',
+  };
+
+  const darkHighlightColors = {
+    yellow: '#FFD700', // Bright yellow
+    green: '#00FF7F',  // Vibrant green
+    pink: '#FF1493',   // Deep pink
+    blue: '#00BFFF',   // Bright blue
+  };
 
   // Retrieve test data
   const testData = location.state || JSON.parse(sessionStorage.getItem('testData')) || {};
@@ -161,6 +178,22 @@ const TestRunnerPage = () => {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
+  // Apply dark mode
+  useEffect(() => {
+    if (isDarkMode) {
+      document.documentElement.classList.add('dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+    }
+  }, [isDarkMode]);
+
+  // Toggle dark mode
+  const toggleDarkMode = () => {
+    const newMode = !isDarkMode;
+    setIsDarkMode(newMode);
+    localStorage.setItem('theme', newMode ? 'dark' : 'light');
+  };
+
   // Auto-submit on timer expiry
   const handleAutoSubmit = async () => {
     const currentQuestion = questions[currentQuestionIndex];
@@ -239,102 +272,96 @@ const TestRunnerPage = () => {
   };
 
   // Submit question
- // Submit question
-const handleSubmitQuestion = async (autoSelectedAnswer = null) => {
-  const currentQuestion = questions[currentQuestionIndex];
-  const questionId = currentQuestion._id;
-  if (!testSessionId || !questionId) {
-    alert('Error: Test session or question ID is missing.');
-    return;
-  }
+  const handleSubmitQuestion = async (autoSelectedAnswer = null) => {
+    const currentQuestion = questions[currentQuestionIndex];
+    const questionId = currentQuestion._id;
+    if (!testSessionId || !questionId) {
+      alert('Error: Test session or question ID is missing.');
+      return;
+    }
 
-  const userAnswer = userAnswers.find(a => a.questionId === questionId);
-  const selectedAnswer = autoSelectedAnswer !== null ? autoSelectedAnswer : (userAnswer?.selectedAnswer ?? -1);
-  const timeTaken = calculateTimeTaken();
+    const userAnswer = userAnswers.find(a => a.questionId === questionId);
+    const selectedAnswer = autoSelectedAnswer !== null ? autoSelectedAnswer : (userAnswer?.selectedAnswer ?? -1);
+    const timeTaken = calculateTimeTaken();
 
-  // Transform subjects and topics to match StudentQuestion schema
-  const subjects = currentQuestion.subjects?.map(s => s.name) || [];
-  const topics = currentQuestion.subjects?.flatMap(s => s.topics || []) || [];
+    const subjects = currentQuestion.subjects?.map(s => s.name) || [];
+    const topics = currentQuestion.subjects?.flatMap(s => s.topics || []) || [];
 
-  const payload = {
-    testSessionId,
-    questionId,
-    selectedAnswer,
-    subjects: subjects.length > 0 ? subjects : ['Unknown'], // Default if missing
-    topics: topics.length > 0 ? topics : [], // Empty array if no topics
-    timeTaken,
-  };
+    const payload = {
+      testSessionId,
+      questionId,
+      selectedAnswer,
+      subjects: subjects.length > 0 ? subjects : ['Unknown'],
+      topics: topics.length > 0 ? topics : [],
+      timeTaken,
+    };
 
-  setSubmitting(true);
-  try {
-    // Submit answer
-    const submitResponse = await axios.post('/api/student-questions/submit', payload, {
-      headers: {
-        Authorization: `Bearer ${token}`,
-        'Content-Type': 'application/json',
-      },
-    });
-
-    if (submitResponse.data.success) {
-      setSubmittedQuestions(prev => {
-        if (!prev.includes(questionId)) {
-          return [...prev, questionId];
-        }
-        return prev;
-      });
-
-      // Fetch question details to get explanation, media, and correctAnswer
-      const questionResponse = await axios.get(`/api/questions/${questionId}`, {
+    setSubmitting(true);
+    try {
+      const submitResponse = await axios.post('/api/student-questions/submit', payload, {
         headers: {
           Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json',
         },
       });
 
-      if (questionResponse.data.success) {
-        const questionData = questionResponse.data.data;
-        // Update questions with fetched data
-        setQuestions(prev => {
-          const updated = [...prev];
-          updated[currentQuestionIndex] = {
-            ...currentQuestion,
-            explanation: questionData.explanation || 'No explanation available.',
-            explanationMedia: questionData.explanationMedia || [],
-            questionMedia: questionData.questionMedia || [],
-            options: questionData.options || currentQuestion.options,
-            correctAnswer: questionData.correctAnswer ?? currentQuestion.correctAnswer,
-            subjects: questionData.subjects || currentQuestion.subjects, // Preserve subjects
-          };
-          return updated;
+      if (submitResponse.data.success) {
+        setSubmittedQuestions(prev => {
+          if (!prev.includes(questionId)) {
+            return [...prev, questionId];
+          }
+          return prev;
         });
 
-        // Store submission result for feedback
-        setSubmissionResults(prev => ({
-          ...prev,
-          [questionId]: {
-            isCorrect: submitResponse.data.data.isCorrect,
-            selectedAnswer,
-            correctAnswer: questionData.correctAnswer ?? currentQuestion.correctAnswer,
-            options: questionData.options || currentQuestion.options,
+        const questionResponse = await axios.get(`/api/questions/${questionId}`, {
+          headers: {
+            Authorization: `Bearer ${token}`,
           },
-        }));
+        });
+
+        if (questionResponse.data.success) {
+          const questionData = questionResponse.data.data;
+          setQuestions(prev => {
+            const updated = [...prev];
+            updated[currentQuestionIndex] = {
+              ...currentQuestion,
+              explanation: questionData.explanation || 'No explanation available.',
+              explanationMedia: questionData.explanationMedia || [],
+              questionMedia: questionData.questionMedia || [],
+              options: questionData.options || currentQuestion.options,
+              correctAnswer: questionData.correctAnswer ?? currentQuestion.correctAnswer,
+              subjects: questionData.subjects || currentQuestion.subjects,
+            };
+            return updated;
+          });
+
+          setSubmissionResults(prev => ({
+            ...prev,
+            [questionId]: {
+              isCorrect: submitResponse.data.data.isCorrect,
+              selectedAnswer,
+              correctAnswer: questionData.correctAnswer ?? currentQuestion.correctAnswer,
+              options: questionData.options || currentQuestion.options,
+            },
+          }));
+        } else {
+          throw new Error(questionResponse.data.message || 'Failed to fetch question details.');
+        }
       } else {
-        throw new Error(questionResponse.data.message || 'Failed to fetch question details.');
+        throw new Error(submitResponse.data.message || 'Submission failed.');
       }
-    } else {
-      throw new Error(submitResponse.data.message || 'Submission failed.');
+    } catch (err) {
+      console.error('Error submitting question:', err);
+      if (err.response?.status === 401) {
+        alert('Session expired. Please log in again.');
+        navigate('/login');
+      } else {
+        alert(`Submission failed: ${err.response?.data?.message || err.message || 'Please try again.'}`);
+      }
+    } finally {
+      setSubmitting(false);
     }
-  } catch (err) {
-    console.error('Error submitting question:', err);
-    if (err.response?.status === 401) {
-      alert('Session expired. Please log in again.');
-      navigate('/login');
-    } else {
-      alert(`Submission failed: ${err.response?.data?.message || err.message || 'Please try again.'}`);
-    }
-  } finally {
-    setSubmitting(false);
-  }
-};
+  };
 
   // Submit unanswered questions
   const submitUnansweredQuestions = async () => {
@@ -364,7 +391,6 @@ const handleSubmitQuestion = async (autoSelectedAnswer = null) => {
         if (submitResponse.data.success) {
           setSubmittedQuestions(prev => [...prev, question._id]);
 
-          // Fetch question details
           const questionResponse = await axios.get(`/api/questions/${question._id}`, {
             headers: {
               Authorization: `Bearer ${token}`,
@@ -420,12 +446,11 @@ const handleSubmitQuestion = async (autoSelectedAnswer = null) => {
     }
   };
 
-  // Final annunciatoize test
+  // Finalize test
   const finalizeTest = async () => {
     try {
       setLoading(true);
 
-      // Validate test session
       let testSession;
       try {
         const sessionResponse = await axios.get(`/api/tests/${testSessionId}`, {
@@ -456,7 +481,6 @@ const handleSubmitQuestion = async (autoSelectedAnswer = null) => {
         return;
       }
 
-      // Update test session status to 'succeeded'
       await axios.put(
         `/api/tests/${testSessionId}`,
         { status: 'succeeded' },
@@ -468,14 +492,12 @@ const handleSubmitQuestion = async (autoSelectedAnswer = null) => {
         }
       );
 
-      // Fetch student questions for results
       const resultsResponse = await axios.get(`/api/student-questions/test/${testSessionId}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
 
       const studentQuestions = resultsResponse.data.data || [];
 
-      // Prepare results data
       const resultsData = {
         score: studentQuestions.filter(q => q.isCorrect).length,
         totalQuestions: questions.length,
@@ -555,7 +577,7 @@ const handleSubmitQuestion = async (autoSelectedAnswer = null) => {
       const range = selection.getRangeAt(0);
       const rect = range.getBoundingClientRect();
       setSelectedText(selection.toString());
-      setHighlightPosition({ x: rect.left, y: rect.bottom + window.scrollY });
+      setHighlightPosition({ x: rect.left + window.scrollX, y: rect.bottom + window.scrollY + 10 });
       setShowHighlightMenu(true);
     } else {
       setShowHighlightMenu(false);
@@ -568,7 +590,7 @@ const handleSubmitQuestion = async (autoSelectedAnswer = null) => {
     const key = `${questionId}_${Date.now()}`;
     setHighlights(prev => ({
       ...prev,
-      [key]: { text: selectedText, color, questionId },
+      [key]: { text: selectedText, color, questionId }, // Store color name
     }));
     setShowHighlightMenu(false);
     window.getSelection().removeAllRanges();
@@ -586,23 +608,22 @@ const handleSubmitQuestion = async (autoSelectedAnswer = null) => {
   // Render explanation with bullet points
   const renderExplanation = (explanation, questionId) => {
     if (!explanation || explanation === 'No explanation available.') {
-      return <p className="text-gray-700 text-base">{explanation}</p>;
+      return <p className="text-gray-700 dark:text-gray-200 text-base">{renderHighlightedText(explanation, questionId)}</p>;
     }
 
-    // Split by periods, trim, and filter out empty segments
     const segments = explanation
       .split('.')
       .map(segment => segment.trim())
       .filter(segment => segment.length > 0);
 
     if (segments.length <= 1) {
-      return <p className="text-gray-700 text-base">{renderHighlightedText(explanation, questionId)}</p>;
+      return <p className="text-gray-700 dark:text-gray-200 text-base">{renderHighlightedText(explanation, questionId)}</p>;
     }
 
     return (
       <ul className="list-disc pl-5 space-y-2">
         {segments.map((segment, index) => (
-          <li key={index} className="text-gray-700 text-base">
+          <li key={index} className="text-gray-700 dark:text-gray-200 text-base">
             {renderHighlightedText(segment, questionId)}
           </li>
         ))}
@@ -613,11 +634,12 @@ const handleSubmitQuestion = async (autoSelectedAnswer = null) => {
   // Render highlighted text
   const renderHighlightedText = (text, questionId) => {
     let result = text || '';
-    Object.entries(highlights).forEach(([key, { text: highlightText, color, questionId: highlightQuestionId }]) => {
+    Object.entries(highlights).forEach(([key, { text: highlightText, color: colorName, questionId: highlightQuestionId }]) => {
       if (highlightQuestionId === questionId && result.includes(highlightText)) {
+        const actualColor = isDarkMode ? darkHighlightColors[colorName] : lightHighlightColors[colorName];
         result = result.replace(
           highlightText,
-          `<span class="highlight" data-key="${key}" style="background-color: ${color}">${highlightText}</span>`
+          `<span class="highlight text-gray-700 dark:text-gray-200" data-key="${key}" style="background-color: ${actualColor}">${highlightText}</span>`
         );
       }
     });
@@ -627,11 +649,11 @@ const handleSubmitQuestion = async (autoSelectedAnswer = null) => {
   // Loading state
   if (loading && !testCompleted) {
     return (
-      <div className="flex items-center justify-center min-h-screen bg-gray-50">
+      <div className="flex items-center justify-center min-h-screen bg-gray-50 dark:bg-gray-900">
         <div className="text-center p-8 max-w-md mx-auto">
-          <div className="animate-spin rounded-full h-16 w-16 border-t-4 border-b-4 border-blue-500 mx-auto mb-4"></div>
-          <h2 className="text-xl font-semibold text-gray-700">Loading your test...</h2>
-          <p className="text-gray-500 mt-2">Please wait while we prepare your questions.</p>
+          <div className="animate-spin rounded-full h-16 w-16 border-t-4 border-b-4 border-blue-500 dark:border-blue-400 mx-auto mb-4"></div>
+          <h2 className="text-xl font-semibold text-gray-700 dark:text-gray-200">Loading your test...</h2>
+          <p className="text-gray-500 dark:text-gray-400 mt-2">Please wait while we prepare your questions.</p>
         </div>
       </div>
     );
@@ -640,14 +662,14 @@ const handleSubmitQuestion = async (autoSelectedAnswer = null) => {
   // Error state
   if (error) {
     return (
-      <div className="flex items-center justify-center min-h-screen bg-gray-50">
-        <div className="text-center p-8 max-w-md mx-auto bg-white rounded-lg shadow">
-          <svg className="w-16 h-16 text-red-500 mx-auto mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+      <div className="flex items-center justify-center min-h-screen bg-gray-50 dark:bg-gray-900">
+        <div className="text-center p-8 max-w-md mx-auto bg-white dark:bg-gray-800 rounded-lg shadow">
+          <svg className="w-16 h-16 text-red-500 dark:text-red-400 mx-auto mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
           </svg>
-          <h2 className="text-xl font-semibold text-gray-700 mb-2">Error</h2>
-          <p className="text-gray-500 mb-6">{error}</p>
-          <button onClick={handleBackToDashboard} className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700">
+          <h2 className="text-xl font-semibold text-gray-700 dark:text-gray-200 mb-2">Error</h2>
+          <p className="text-gray-500 dark:text-gray-400 mb-6">{error}</p>
+          <button onClick={handleBackToDashboard} className="px-4 py-2 bg-blue-600 dark:bg-blue-500 text-white rounded hover:bg-blue-700 dark:hover:bg-blue-600">
             Back to Dashboard
           </button>
         </div>
@@ -662,18 +684,21 @@ const handleSubmitQuestion = async (autoSelectedAnswer = null) => {
   const isQuestionFlagged = flaggedQuestions.includes(currentQuestion?._id);
   const submissionResult = submissionResults[currentQuestion?._id];
 
+  // Determine if sidebar is needed
+  const isSidebarNeeded = activeFeature !== 'none' || (explanationPosition === 'side' && isQuestionSubmitted);
+
   // Main test interface
   return (
-    <div className="min-h-screen bg-gray-50 flex">
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex">
       {/* Sidebar */}
       <div
-        className={`fixed inset-y-0 left-0 w-[7.5%] bg-white shadow-lg transform transition-transform ${
+        className={`fixed inset-y-0 left-0 w-[7.5%] bg-white dark:bg-gray-800 shadow-lg transform transition-transform ${
           showSidebar ? 'translate-x-0' : '-translate-x-full'
         } z-20 overflow-y-auto`}
       >
-        <div className="flex justify-between items-center p-2 border-b">
-          <h2 className="text-sm font-bold">Questions</h2>
-          <button onClick={toggleSidebar} className="text-gray-500 hover:text-gray-700">
+        <div className="flex justify-between items-center p-2 border-b dark:border-gray-700">
+          <h2 className="text-sm font-bold text-gray-900 dark:text-gray-100">Questions</h2>
+          <button onClick={toggleSidebar} className="text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200">
             <X size={16} />
           </button>
         </div>
@@ -684,27 +709,34 @@ const handleSubmitQuestion = async (autoSelectedAnswer = null) => {
             const isFlagged = flaggedQuestions.includes(q._id);
             const isCurrent = index === currentQuestionIndex;
             const result = submissionResults[q._id];
-            let bgColor = 'bg-gray-200';
+            let bgColor = 'bg-gray-200 dark:bg-gray-700';
+            let textColor = 'text-gray-700 dark:text-gray-200';
             let statusText = 'Not Answered';
             if (isCurrent) {
-              bgColor = 'bg-blue-500 text-white';
+              bgColor = 'bg-blue-500 dark:bg-blue-600';
+              textColor = 'text-white';
               statusText = 'Current';
             } else if (isSubmitted && result) {
               if (result.isCorrect) {
-                bgColor = 'bg-green-500 text-white';
+                bgColor = 'bg-green-500 dark:bg-green-600';
+                textColor = 'text-white';
                 statusText = 'Correct';
               } else if (result.selectedAnswer === -1) {
-                bgColor = 'bg-yellow-200';
+                bgColor = 'bg-yellow-200 dark:bg-yellow-700';
+                textColor = 'text-gray-700 dark:text-gray-200';
                 statusText = 'Flagged';
               } else {
-                bgColor = 'bg-red-500 text-white';
+                bgColor = 'bg-red-500 dark:bg-red-600';
+                textColor = 'text-white';
                 statusText = 'Incorrect';
               }
             } else if (isFlagged) {
-              bgColor = 'bg-yellow-200';
+              bgColor = 'bg-yellow-200 dark:bg-yellow-700';
+              textColor = 'text-gray-700 dark:text-gray-200';
               statusText = 'Flagged';
             } else if (isAnswered) {
-              bgColor = 'bg-blue-200';
+              bgColor = 'bg-blue-200 dark:bg-blue-700';
+              textColor = 'text-gray-700 dark:text-gray-200';
               statusText = 'Answered';
             }
 
@@ -715,11 +747,11 @@ const handleSubmitQuestion = async (autoSelectedAnswer = null) => {
                     setCurrentQuestionIndex(index);
                     toggleSidebar();
                   }}
-                  className={`w-full py-1 text-sm rounded ${bgColor} flex items-center justify-between px-2 relative`}
+                  className={`w-full py-1 text-sm rounded ${bgColor} ${textColor} flex items-center justify-between px-2 relative`}
                   title={statusText}
                 >
                   <span>{index + 1}</span>
-                  {isFlagged && <Flag size={12} className="text-yellow-500" />}
+                  {isFlagged && <Flag size={12} className="text-yellow-500 dark:text-yellow-400" />}
                 </button>
               </div>
             );
@@ -730,25 +762,25 @@ const handleSubmitQuestion = async (autoSelectedAnswer = null) => {
       {/* Unanswered Modal */}
       {showUnansweredModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-30">
-          <div className="bg-white rounded-lg p-6 max-w-md mx-auto">
-            <h2 className="text-xl font-bold mb-4">You have unanswered questions</h2>
-            <p className="mb-6">Some questions are not yet answered. What would you like to do?</p>
+          <div className="bg-white dark:bg-gray-800 rounded-lg p-6 max-w-md mx-auto">
+            <h2 className="text-xl font-bold mb-4 text-gray-900 dark:text-gray-100">You have unanswered questions</h2>
+            <p className="mb-6 text-gray-500 dark:text-gray-400">Some questions are not yet answered. What would you like to do?</p>
             <div className="flex justify-end space-x-4">
               <button
                 onClick={() => setShowUnansweredModal(false)}
-                className="px-4 py-2 border border-gray-300 rounded text-gray-700 hover:bg-gray-50"
+                className="px-4 py-2 border border-gray-300 dark:border-gray-700 rounded text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700"
               >
                 Go Back to Test
               </button>
               <button
                 onClick={handleDirectSubmit}
-                className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+                className="px-4 py-2 bg-blue-600 dark:bg-blue-500 text-white rounded hover:bg-blue-700 dark:hover:bg-blue-600"
               >
                 Submit As Is
               </button>
               <button
                 onClick={handleSubmitWithDefaults}
-                className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700"
+                className="px-4 py-2 bg-green-600 dark:bg-green-500 text-white rounded hover:bg-green-700 dark:hover:bg-green-600"
               >
                 Submit All Unanswered
               </button>
@@ -761,28 +793,28 @@ const handleSubmitQuestion = async (autoSelectedAnswer = null) => {
       {showHighlightMenu && (
         <div
           ref={highlightMenuRef}
-          className="fixed bg-white border rounded shadow-lg p-2 z-40"
+          className="fixed bg-white dark:bg-gray-800 border dark:border-gray-700 rounded shadow-lg p-2 z-40"
           style={{ top: highlightPosition.y, left: highlightPosition.x }}
         >
           <div className="flex space-x-2">
             <button
               onClick={() => applyHighlight('yellow')}
-              className="w-6 h-6 bg-yellow-200 rounded"
+              className="w-6 h-6 bg-yellow-200 dark:bg-yellow-500 rounded"
               title="Highlight Yellow"
             />
             <button
               onClick={() => applyHighlight('green')}
-              className="w-6 h-6 bg-green-200 rounded"
+              className="w-6 h-6 bg-green-200 dark:bg-green-500 rounded"
               title="Highlight Green"
             />
             <button
               onClick={() => applyHighlight('pink')}
-              className="w-6 h-6 bg-pink-200 rounded"
+              className="w-6 h-6 bg-pink-200 dark:bg-pink-500 rounded"
               title="Highlight Pink"
             />
             <button
               onClick={() => applyHighlight('blue')}
-              className="w-6 h-6 bg-blue-200 rounded"
+              className="w-6 h-6 bg-blue-200 dark:bg-blue-500 rounded"
               title="Highlight Blue"
             />
           </div>
@@ -791,33 +823,61 @@ const handleSubmitQuestion = async (autoSelectedAnswer = null) => {
 
       {/* Main Content */}
       <div className="flex-grow flex">
-        {/* Question Area (55% width) */}
-        <div className="w-[55%] mx-auto py-8">
-          <div className="bg-white rounded-lg shadow-lg overflow-hidden">
-            <div className="bg-blue-600 p-4 flex justify-between items-center text-white">
+        {/* Question Area */}
+        <div className={`py-8 px-4 ${isSidebarNeeded ? 'w-3/5' : 'w-full'}`}>
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg overflow-hidden">
+            <div className="bg-blue-600 dark:bg-blue-500 p-4 flex justify-between items-center text-white">
               <div className="flex items-center">
                 <button
                   onClick={toggleSidebar}
-                  className="mr-4 hover:bg-blue-700 p-1 rounded-full"
+                  className="mr-4 hover:bg-blue-700 dark:hover:bg-blue-600 p-1 rounded-full"
                   aria-label="Open question navigator"
                 >
                   <Menu size={20} />
                 </button>
                 <h1 className="text-xl font-bold">Test Session</h1>
               </div>
-              <div className="flex items-center space-x-4">
+              <div className="flex items-center space-x-2">
                 <button
                   onClick={() => toggleFlagQuestion(currentQuestion?._id)}
-                  className={`hover:bg-blue-700 p-1 rounded-full ${isQuestionFlagged ? 'text-yellow-400' : 'text-white'}`}
+                  className={`hover:bg-blue-700 dark:hover:bg-blue-600 p-1 rounded-full ${isQuestionFlagged ? 'text-yellow-400' : 'text-white'}`}
                   aria-label="Flag question"
                 >
                   <Flag size={20} />
+                </button>
+                <button
+                  onClick={() => setActiveFeature(activeFeature === 'chat' ? 'none' : 'chat')}
+                  className={`hover:bg-blue-700 dark:hover:bg-blue-600 p-1 rounded-full ${activeFeature === 'chat' ? 'text-yellow-400' : 'text-white'}`}
+                  aria-label="Chat"
+                >
+                  <MessageSquare size={20} />
+                </button>
+                <button
+                  onClick={() => setActiveFeature(activeFeature === 'calculator' ? 'none' : 'calculator')}
+                  className={`hover:bg-blue-700 dark:hover:bg-blue-600 p-1 rounded-full ${activeFeature === 'calculator' ? 'text-yellow-400' : 'text-white'}`}
+                  aria-label="Calculator"
+                >
+                  <CalculatorIcon size={20} />
+                </button>
+                <button
+                  onClick={() => setActiveFeature(activeFeature === 'lab' ? 'none' : 'lab')}
+                  className={`hover:bg-blue-700 dark:hover:bg-blue-600 p-1 rounded-full ${activeFeature === 'lab' ? 'text-yellow-400' : 'text-white'}`}
+                  aria-label="Lab"
+                >
+                  <Beaker size={20} />
+                </button>
+                <button
+                  onClick={toggleDarkMode}
+                  className="hover:bg-blue-700 dark:hover:bg-blue-600 p-1 rounded-full"
+                  aria-label={isDarkMode ? 'Switch to light mode' : 'Switch to dark mode'}
+                >
+                  {isDarkMode ? <Sun size={20} /> : <Moon size={20} />}
                 </button>
                 {usePerQuestionTimer && (
                   <div className="flex items-center">
                     <button
                       onClick={toggleTimerPause}
-                      className="hover:bg-blue-700 p-1 rounded-full mr-2"
+                      className="hover:bg-blue-700 dark:hover:bg-blue-600 p-1 rounded-full mr-2"
                       aria-label={timerPaused ? 'Resume timer' : 'Pause timer'}
                     >
                       {timerPaused ? <PlayCircle size={20} /> : <PauseCircle size={20} />}
@@ -831,14 +891,14 @@ const handleSubmitQuestion = async (autoSelectedAnswer = null) => {
               </div>
             </div>
 
-            <div className="bg-gray-50 px-6 py-3 border-b">
+            <div className="bg-gray-50 dark:bg-gray-700 px-6 py-3 border-b dark:border-gray-600">
               <div className="flex justify-between mb-2">
-                <span>Question {currentQuestionIndex + 1} of {questions.length}</span>
-                <span>{answeredCount} of {questions.length} answered</span>
+                <span className="text-gray-700 dark:text-gray-200">Question {currentQuestionIndex + 1} of {questions.length}</span>
+                <span className="text-gray-700 dark:text-gray-200">{answeredCount} of {questions.length} answered</span>
               </div>
-              <div className="w-full bg-gray-200 rounded-full h-2">
+              <div className="w-full bg-gray-200 dark:bg-gray-600 rounded-full h-2">
                 <div
-                  className="bg-blue-600 h-2 rounded-full transition-all duration-300"
+                  className="bg-blue-600 dark:bg-blue-400 h-2 rounded-full transition-all duration-300"
                   style={{ width: `${progress}%` }}
                 ></div>
               </div>
@@ -847,7 +907,7 @@ const handleSubmitQuestion = async (autoSelectedAnswer = null) => {
             <div className="p-6" onMouseUp={handleTextSelection}>
               <div className="mb-8">
                 <div className="flex justify-between mb-4">
-                  <h2 className="text-xl font-semibold">
+                  <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100">
                     {currentQuestion?.questionText
                       ? renderHighlightedText(
                           typeof currentQuestion.questionText === 'object'
@@ -858,7 +918,6 @@ const handleSubmitQuestion = async (autoSelectedAnswer = null) => {
                       : 'No question text'}
                   </h2>
                 </div>
-                {/* Question Media */}
                 {isQuestionSubmitted && currentQuestion?.questionMedia?.length > 0 && (
                   <div className="mt-2 flex flex-wrap gap-2">
                     {currentQuestion.questionMedia.map((media, index) => (
@@ -873,12 +932,22 @@ const handleSubmitQuestion = async (autoSelectedAnswer = null) => {
                   {(currentQuestion?.options || []).map((option, index) => {
                     const isSelected = userAnswers.find(a => a.questionId === currentQuestion._id)?.selectedAnswer === index;
                     const isStruck = struckOptions[`${currentQuestion._id}_${index}`];
+                    const isCorrect = isQuestionSubmitted && index === submissionResult?.correctAnswer;
+                    const isSelectedIncorrect = isQuestionSubmitted && index === submissionResult?.selectedAnswer && !submissionResult?.isCorrect;
+
                     return (
-                      <div key={index} className="flex items-center p-4 border rounded-lg">
+                      <div
+                        key={index}
+                        className={`flex items-center p-4 border rounded-lg ${
+                          isQuestionSubmitted && isCorrect ? 'bg-green-100 dark:bg-green-900' : ''
+                        } ${
+                          isQuestionSubmitted && isSelectedIncorrect ? 'bg-red-100 dark:bg-red-900' : ''
+                        }`}
+                      >
                         <button
                           onClick={() => !isQuestionSubmitted && handleAnswerSelect(index)}
                           className={`flex-shrink-0 w-6 h-6 rounded-full mr-3 flex items-center justify-center ${
-                            isSelected ? 'bg-blue-500 text-white' : 'bg-gray-200 text-gray-700'
+                            isSelected ? 'bg-blue-500 text-white' : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-200'
                           } ${isQuestionSubmitted ? 'cursor-not-allowed' : 'cursor-pointer'}`}
                           disabled={isQuestionSubmitted}
                           aria-label={`Select option ${String.fromCharCode(65 + index)}`}
@@ -897,6 +966,7 @@ const handleSubmitQuestion = async (autoSelectedAnswer = null) => {
                                 toggleStrikeThrough(currentQuestion._id, index);
                               }
                             }}
+                            className="text-gray-700 dark:text-gray-200"
                           >
                             {option?.text
                               ? renderHighlightedText(
@@ -905,7 +975,6 @@ const handleSubmitQuestion = async (autoSelectedAnswer = null) => {
                                 )
                               : 'No option text'}
                           </span>
-                          {/* Option Media */}
                           {isQuestionSubmitted && option?.media?.length > 0 && (
                             <div className="mt-2 flex flex-wrap gap-2">
                               {option.media.map((media, mediaIndex) => (
@@ -916,11 +985,57 @@ const handleSubmitQuestion = async (autoSelectedAnswer = null) => {
                             </div>
                           )}
                         </div>
+                        {isQuestionSubmitted && (
+                          <span className="ml-2">
+                            {isCorrect && <Check size={16} className="text-green-500 dark:text-green-400" />}
+                            {isSelectedIncorrect && <X size={16} className="text-red-500 dark:text-red-400" />}
+                          </span>
+                        )}
                       </div>
                     );
                   })}
                 </div>
               </div>
+
+              {isQuestionSubmitted && explanationPosition === 'bottom' && (
+                <div className="mt-8 p-6 bg-white dark:bg-gray-800 rounded-lg shadow-lg" onMouseUp={handleTextSelection}>
+                  <div className="flex justify-between items-center mb-4">
+                    <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Feedback and Explanation</h3>
+                    <button
+                      onClick={() => setExplanationPosition('side')}
+                      className="px-4 py-2 bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-200 rounded hover:bg-gray-300 dark:hover:bg-gray-600"
+                    >
+                      Move to side
+                    </button>
+                  </div>
+                  {submissionResult && (
+                    <p className={`mb-4 text-sm font-medium ${submissionResult.isCorrect ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
+                      Your answer is {submissionResult.isCorrect ? 'correct' : 'incorrect'}.
+                      {submissionResult.selectedAnswer !== -1 && (
+                        <>
+                          {' You selected: '}
+                          {submissionResult.options[submissionResult.selectedAnswer]?.text || 'None'}
+                          {'. Correct answer: '}
+                          {submissionResult.options[submissionResult.correctAnswer]?.text || 'Unknown'}
+                        </>
+                      )}
+                    </p>
+                  )}
+                  <div className="mb-4">
+                    <h4 className="text-md font-medium mb-2 text-gray-900 dark:text-gray-100">Explanation</h4>
+                    {renderExplanation(currentQuestion?.explanation, currentQuestion?._id)}
+                  </div>
+                  {isQuestionSubmitted && currentQuestion?.explanationMedia?.length > 0 && (
+                    <div className="mt-2 flex flex-wrap gap-2">
+                      {currentQuestion.explanationMedia.map((media, index) => (
+                        <ErrorBoundary key={index}>
+                          <MediaDisplay media={media} label={`Explanation Media ${index + 1}`} />
+                        </ErrorBoundary>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
 
               <div className="flex justify-between mt-8">
                 <div className="flex space-x-4">
@@ -929,8 +1044,8 @@ const handleSubmitQuestion = async (autoSelectedAnswer = null) => {
                     disabled={currentQuestionIndex === 0}
                     className={`px-4 py-2 rounded flex items-center ${
                       currentQuestionIndex === 0
-                        ? 'bg-gray-200 text-gray-500 cursor-not-allowed'
-                        : 'border border-gray-300 text-gray-600 hover:bg-gray-50'
+                        ? 'bg-gray-200 dark:bg-gray-700 text-gray-500 dark:text-gray-400 cursor-not-allowed'
+                        : 'border border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700'
                     }`}
                   >
                     <ChevronLeft size={16} className="mr-1" /> Previous
@@ -940,8 +1055,8 @@ const handleSubmitQuestion = async (autoSelectedAnswer = null) => {
                     disabled={currentQuestionIndex === questions.length - 1}
                     className={`px-4 py-2 rounded flex items-center ${
                       currentQuestionIndex === questions.length - 1
-                        ? 'bg-gray-200 text-gray-500 cursor-not-allowed'
-                        : 'border border-gray-300 text-gray-600 hover:bg-gray-50'
+                        ? 'bg-gray-200 dark:bg-gray-700 text-gray-500 dark:text-gray-400 cursor-not-allowed'
+                        : 'border border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700'
                     }`}
                   >
                     Next <ChevronRight size={16} className="ml-1" />
@@ -953,8 +1068,8 @@ const handleSubmitQuestion = async (autoSelectedAnswer = null) => {
                     disabled={isQuestionSubmitted || submitting}
                     className={`px-6 py-2 rounded flex items-center ${
                       isQuestionSubmitted || submitting
-                        ? 'bg-gray-200 text-gray-500 cursor-not-allowed'
-                        : 'bg-blue-600 text-white hover:bg-blue-700'
+                        ? 'bg-gray-200 dark:bg-gray-700 text-gray-500 dark:text-gray-400 cursor-not-allowed'
+                        : 'bg-blue-600 dark:bg-blue-500 text-white hover:bg-blue-700 dark:hover:bg-blue-600'
                     }`}
                   >
                     <Check size={16} className="mr-2" />
@@ -963,16 +1078,16 @@ const handleSubmitQuestion = async (autoSelectedAnswer = null) => {
                 </div>
               </div>
 
-              <div className="mt-12 pt-6 border-t flex justify-between">
+              <div className="mt-12 pt-6 border-t dark:border-gray-700 flex justify-between">
                 <button
                   onClick={handleBackToDashboard}
-                  className="px-4 py-2 border border-gray-300 rounded text-gray-600 hover:bg-gray-50"
+                  className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded text-gray-600 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700"
                 >
                   Cancel Test
                 </button>
                 <button
                   onClick={handleEndTest}
-                  className="px-6 py-2 bg-red-600 text-white rounded hover:bg-red-700"
+                  className="px-6 py-2 bg-red-600 dark:bg-red-500 text-white rounded hover:bg-red-700 dark:hover:bg-red-600"
                 >
                   End Test
                 </button>
@@ -981,105 +1096,89 @@ const handleSubmitQuestion = async (autoSelectedAnswer = null) => {
           </div>
         </div>
 
-        {/* Sidebar for Features (37.5% width) */}
-        <div className="w-[37.5%] py-8 pl-4">
-          {isQuestionSubmitted ? (
-            <div className="bg-white rounded-lg shadow-lg p-6" onMouseUp={handleTextSelection}>
-              <h3 className="text-lg font-semibold mb-4">Feedback and Explanation</h3>
-              {submissionResult && (
-                <p className={`mb-4 text-sm font-medium ${submissionResult.isCorrect ? 'text-green-600' : 'text-red-600'}`}>
-                  Your answer is {submissionResult.isCorrect ? 'correct' : 'incorrect'}.
-                  {submissionResult.selectedAnswer !== -1 && (
-                    <>
-                      {' You selected: '}
-                      {submissionResult.options[submissionResult.selectedAnswer]?.text || 'None'}
-                      {'. Correct answer: '}
-                      {submissionResult.options[submissionResult.correctAnswer]?.text || 'Unknown'}
-                    </>
+        {/* Sidebar for Features */}
+        {isSidebarNeeded && (
+          <div className="w-2/5 py-8 pl-4">
+            <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6">
+              {explanationPosition === 'side' && isQuestionSubmitted ? (
+                <div onMouseUp={handleTextSelection}>
+                  <div className="flex justify-between items-center mb-4">
+                    <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Feedback and Explanation</h3>
+                    <button
+                      onClick={() => setExplanationPosition('bottom')}
+                      className="px-4 py-2 bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-200 rounded hover:bg-gray-300 dark:hover:bg-gray-600"
+                    >
+                      Move to bottom
+                    </button>
+                  </div>
+                  {submissionResult && (
+                    <p className={`mb-4 text-sm font-medium ${submissionResult.isCorrect ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
+                      Your answer is {submissionResult.isCorrect ? 'correct' : 'incorrect'}.
+                      {submissionResult.selectedAnswer !== -1 && (
+                        <>
+                          {' You selected: '}
+                          {submissionResult.options[submissionResult.selectedAnswer]?.text || 'None'}
+                          {'. Correct answer: '}
+                          {submissionResult.options[submissionResult.correctAnswer]?.text || 'Unknown'}
+                        </>
+                      )}
+                    </p>
                   )}
-                </p>
-              )}
-              <div className="mb-4">
-                <h4 className="text-md font-medium mb-2">Explanation</h4>
-                {renderExplanation(currentQuestion?.explanation, currentQuestion?._id)}
-              </div>
-              {/* Explanation Media */}
-              {isQuestionSubmitted && currentQuestion?.explanationMedia?.length > 0 && (
-                <div className="mt-2 flex flex-wrap gap-2">
-                  {currentQuestion.explanationMedia.map((media, index) => (
-                    <ErrorBoundary key={index}>
-                      <MediaDisplay media={media} label={`Explanation Media ${index + 1}`} />
-                    </ErrorBoundary>
-                  ))}
-                </div>
-              )}
-            </div>
-          ) : (
-            <div className="bg-white rounded-lg shadow-lg p-6">
-              {/* Navigation Bar */}
-              <div className="flex space-x-2 mb-4">
-                <button
-                  onClick={() => setActiveFeature(activeFeature === 'lab' ? 'none' : 'lab')}
-                  className={`flex-1 px-3 py-2 rounded text-sm ${
-                    activeFeature === 'lab' ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
-                  }`}
-                >
-                  Open Lab
-                </button>
-                <button
-                  onClick={() => setActiveFeature(activeFeature === 'calculator' ? 'none' : 'calculator')}
-                  className={`flex-1 px-3 py-2 rounded text-sm ${
-                    activeFeature === 'calculator' ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
-                  }`}
-                >
-                  Calculator
-                </button>
-                <button
-                  onClick={() => setActiveFeature(activeFeature === 'chatgpt' ? 'none' : 'chatgpt')}
-                  className={`flex-1 px-3 py-2 rounded text-sm ${
-                    activeFeature === 'chatgpt' ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
-                  }`}
-                >
-                  Chat GPT
-                </button>
-              </div>
-
-              {/* Feature Content */}
-              {activeFeature === 'calculator' ? (
-                <Calculator onClose={() => setActiveFeature('none')} />
-              ) : activeFeature === 'lab' ? (
-                <div className="text-center p-4">
-                  <p className="text-gray-700">Open Lab feature coming soon!</p>
-                </div>
-              ) : activeFeature === 'chatgpt' ? (
-                <div className="text-center p-4">
-                  <p className="text-gray-700">Chat GPT feature coming soon!</p>
+                  <div className="mb-4">
+                    <h4 className="text-md font-medium mb-2 text-gray-900 dark:text-gray-100">Explanation</h4>
+                    {renderExplanation(currentQuestion?.explanation, currentQuestion?._id)}
+                  </div>
+                  {isQuestionSubmitted && currentQuestion?.explanationMedia?.length > 0 && (
+                    <div className="mt-2 flex flex-wrap gap-2">
+                      {currentQuestion.explanationMedia.map((media, index) => (
+                        <ErrorBoundary key={index}>
+                          <MediaDisplay media={media} label={`Explanation Media ${index + 1}`} />
+                        </ErrorBoundary>
+                      ))}
+                    </div>
+                  )}
                 </div>
               ) : (
-                <div className="flex flex-col space-y-4">
-                  <button
-                    onClick={() => setActiveFeature('lab')}
-                    className="px-6 py-2 bg-gray-200 text-gray-700 rounded hover:bg-gray-300"
-                  >
-                    Open Lab
-                  </button>
-                  <button
-                    onClick={() => setActiveFeature('calculator')}
-                    className="px-6 py-2 bg-gray-200 text-gray-700 rounded hover:bg-gray-300"
-                  >
-                    Calculator
-                  </button>
-                  <button
-                    onClick={() => setActiveFeature('chatgpt')}
-                    className="px-6 py-2 bg-gray-200 text-gray-700 rounded hover:bg-gray-300"
-                  >
-                    Chat GPT
-                  </button>
+                <div>
+                  {activeFeature === 'calculator' ? (
+                    <div className="relative">
+                      <button
+                        onClick={() => setActiveFeature('none')}
+                        className="absolute top-2 right-2 text-gray-500 dark:text-gray-200 hover:text-gray-700 dark:hover:text-gray-300"
+                        aria-label="Close"
+                      >
+                        <X size={16} />
+                      </button>
+                      <Calculator onClose={() => setActiveFeature('none')} />
+                    </div>
+                  ) : activeFeature === 'lab' ? (
+                    <div className="text-center p-4 relative">
+                      <button
+                        onClick={() => setActiveFeature('none')}
+                        className="absolute top-2 right-2 text-gray-500 dark:text-gray-200 hover:text-gray-700 dark:hover:text-gray-300"
+                        aria-label="Close"
+                      >
+                        <X size={16} />
+                      </button>
+                      <p className="text-gray-700 dark:text-gray-200">Open Lab feature coming soon!</p>
+                    </div>
+                  ) : activeFeature === 'chat' ? (
+                    <div className="text-center p-4 relative">
+                      <button
+                        onClick={() => setActiveFeature('none')}
+                        className="absolute top-2 right-2 text-gray-500 dark:text-gray-200 hover:text-gray-700 dark:hover:text-gray-300"
+                        aria-label="Close"
+                      >
+                        <X size={16} />
+                      </button>
+                      <p className="text-gray-700 dark:text-gray-200">Chat feature coming soon!</p>
+                    </div>
+                  ) : null}
                 </div>
               )}
             </div>
-          )}
-        </div>
+          </div>
+        )}
       </div>
     </div>
   );

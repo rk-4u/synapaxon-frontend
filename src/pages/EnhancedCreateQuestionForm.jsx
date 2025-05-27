@@ -1,17 +1,19 @@
+import { useNavigate } from "react-router-dom";
 import React, { useState } from 'react';
 import { X, PlusCircle, Upload, Image, File, CheckCircle, Plus, Trash2, Paperclip, Link } from 'lucide-react';
 import axios from '../api/axiosConfig';
 import { subjectsByCategory, topicsBySubject } from '../data/questionData';
 
 const EnhancedCreateQuestionForm = ({ onQuestionCreated = () => {} }) => {
+  const navigate = useNavigate();
   const [formData, setFormData] = useState({
     questionText: '',
     explanation: '',
-    options: ['', ''], // Starting with 2 options
+    options: ['', ''],
     correctAnswer: null,
     difficulty: 'medium',
     category: 'Basic Sciences',
-    subjects: [], // Array of { name: String, topics: []String [] },
+    subjects: [],
     tags: [],
     questionMedia: [],
     explanationMedia: [],
@@ -23,8 +25,6 @@ const EnhancedCreateQuestionForm = ({ onQuestionCreated = () => {} }) => {
   const [successMessage, setSuccessMessage] = useState('');
   const [errorMessage, setErrorMessage] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
-  
-  // Media upload states
   const [uploadingFor, setUploadingFor] = useState(null);
   const [uploadedFiles, setUploadedFiles] = useState([]);
   const [urlInput, setUrlInput] = useState('');
@@ -61,7 +61,7 @@ const EnhancedCreateQuestionForm = ({ onQuestionCreated = () => {} }) => {
     if (formData.subjects.some(s => s.name === subject)) {
       updatedSubjects = formData.subjects.filter(s => s.name !== subject);
     } else {
-        updatedSubjects = [...formData.subjects, { name: subject, topics: [] }];
+      updatedSubjects = [...formData.subjects, { name: subject, topics: [] }];
     }
     setFormData({ 
       ...formData, 
@@ -75,15 +75,15 @@ const EnhancedCreateQuestionForm = ({ onQuestionCreated = () => {} }) => {
         const updatedTopics = subject.topics.includes(topic)
           ? subject.topics.filter(t => t !== topic)
           : [...subject.topics, topic];
-          return { ...subject, topics: updatedTopics };
-        }
-        return subject;
-      });
-      setFormData({
-        ...formData,
-        subjects: updatedSubjects
-      });
-    };
+        return { ...subject, topics: updatedTopics };
+      }
+      return subject;
+    });
+    setFormData({
+      ...formData,
+      subjects: updatedSubjects
+    });
+  };
 
   const handleAddOption = () => {
     setFormData({
@@ -341,7 +341,6 @@ const EnhancedCreateQuestionForm = ({ onQuestionCreated = () => {} }) => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     
-    // Validation
     if (formData.questionText.trim() === '') {
       setErrorMessage('Question text is required');
       return;
@@ -367,7 +366,6 @@ const EnhancedCreateQuestionForm = ({ onQuestionCreated = () => {} }) => {
       return;
     }
     
-    // Validate media objects
     if (formData.questionMedia.some(media => !validateMediaObject(media))) {
       setErrorMessage('All question media objects must include filename, originalname, mimetype, size, and path');
       return;
@@ -404,7 +402,7 @@ const EnhancedCreateQuestionForm = ({ onQuestionCreated = () => {} }) => {
         correctAnswer: formData.correctAnswer,
         difficulty: formData.difficulty,
         category: formData.category,
-        subjects: formData.subjects, // e.g., [{ name: "Anatomy", topics: ["Skeletal System"] }]
+        subjects: formData.subjects,
         tags: formData.tags,
         questionMedia: formData.questionMedia,
         explanationMedia: formData.explanationMedia,
@@ -449,8 +447,7 @@ const EnhancedCreateQuestionForm = ({ onQuestionCreated = () => {} }) => {
       setIsSubmitting(false);
     }
   };
-  
-  // Helper function to render media upload button
+
   const renderMediaButton = (target, media) => {
     const mediaArray = Array.isArray(media) ? media : [media].filter(Boolean);
     
@@ -459,21 +456,21 @@ const EnhancedCreateQuestionForm = ({ onQuestionCreated = () => {} }) => {
         {mediaArray.length > 0 && (
           <div className="space-y-2 mb-2">
             {mediaArray.map((mediaItem, index) => (
-              <div key={index} className="flex items-center p-2 bg-blue-50 border border-blue-200 rounded-md text-sm">
+              <div key={index} className="flex items-center p-2 bg-blue-50 dark:bg-blue-900/50 border border-blue-200 dark:border-blue-700 rounded-md text-sm">
                 <div className="flex items-center flex-1 overflow-hidden">
                   {mediaItem.type === 'image' ? (
-                    <Image className="w-4 h-4 mr-2 text-blue-500" />
+                    <Image className="w-4 h-4 mr-2 text-blue-500 dark:text-blue-300" />
                   ) : mediaItem.type === 'url' ? (
-                    <Link className="w-4 h-4 mr-2 text-blue-500" />
+                    <Link className="w-4 h-4 mr-2 text-blue-500 dark:text-blue-300" />
                   ) : (
-                    <File className="w-4 h-4 mr-2 text-blue-500" />
+                    <File className="w-4 h-4 mr-2 text-blue-500 dark:text-blue-300" />
                   )}
-                  <span className="truncate">{mediaItem.originalname}</span>
+                  <span className="truncate text-gray-800 dark:text-gray-200">{mediaItem.originalname}</span>
                 </div>
                 <button
                   type="button"
                   onClick={() => handleRemoveUploadedMedia(target, index)}
-                  className="ml-2 p-1 text-gray-500 hover:text-red-500"
+                  className="ml-2 p-1 text-gray-500 dark:text-gray-300 hover:text-red-500 dark:hover:text-red-400"
                   title="Remove media"
                 >
                   <X size={16} />
@@ -485,7 +482,7 @@ const EnhancedCreateQuestionForm = ({ onQuestionCreated = () => {} }) => {
         <button
           type="button"
           onClick={() => startMediaUpload(target)}
-          className="flex items-center text-sm text-blue-600 hover:text-blue-800"
+          className="flex items-center text-sm text-blue-600 dark:text-blue-300 hover:text-blue-800 dark:hover:text-blue-200"
         >
           <Paperclip size={14} className="mr-1" />
           Add Media or URL (Optional)
@@ -494,7 +491,6 @@ const EnhancedCreateQuestionForm = ({ onQuestionCreated = () => {} }) => {
     );
   };
 
-  // Helper function to get file icon based on mimetype
   const getFileIcon = (file) => {
     if (!file) return null;
     
@@ -502,38 +498,43 @@ const EnhancedCreateQuestionForm = ({ onQuestionCreated = () => {} }) => {
     
     switch (type) {
       case 'image':
-        return <Image className="w-6 h-6 mr-2 text-blue-500" />;
+        return <Image className="w-6 h-6 mr-2 text-blue-500 dark:text-blue-300" />;
       case 'video':
-        return <File className="w-6 h-6 mr-2 text-purple-500" />;
+        return <File className="w-6 h-6 mr-2 text-purple-500 dark:text-purple-300" />;
       case 'application':
-        return <File className="w-6 h-6 mr-2 text-orange-500" />;
+        return <File className="w-6 h-6 mr-2 text-orange-500 dark:text-orange-300" />;
       default:
-        return <File className="w-6 h-6 mr-2 text-gray-500" />;
+        return <File className="w-6 h-6 mr-2 text-gray-500 dark:text-gray-300" />;
     }
   };
 
   return (
-    <div className="bg-white rounded-lg shadow p-6">
-      <h2 className="text-2xl font-bold text-blue-600 mb-6">Create New Question</h2>
-      
+    <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
+      <h2 className="text-2xl font-bold text-blue-600 dark:text-blue-300 mb-6">Create New Question</h2>
+      <button 
+        onClick={() => navigate('/dashboard/create/AIQuestionAssistant')}
+        className="mb-6 bg-blue-600 dark:bg-blue-500 hover:bg-blue-700 dark:hover:bg-blue-400 text-white px-4 py-2 rounded"
+      >
+        Use AI Question Assistant
+      </button>
+
       {successMessage && (
-        <div className="mb-6 bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded flex items-center">
+        <div className="mb-6 bg-green-100 dark:bg-green-900/50 border border-green-400 dark:border-green-600 text-green-700 dark:text-green-300 px-4 py-3 rounded flex items-center">
           <CheckCircle className="w-5 h-5 mr-2" />
           <span>{successMessage}</span>
         </div>
       )}
       
       {errorMessage && (
-        <div className="mb-6 bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded">
+        <div className="mb-6 bg-red-100 dark:bg-red-900/50 border border-red-400 dark:border-red-600 text-red-700 dark:text-red-300 px-4 py-3 rounded">
           {errorMessage}
         </div>
       )}
       
-      {/* Media Upload Modal */}
       {uploadingFor !== null && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 w-full max-w-md">
-            <h3 className="text-lg font-semibold mb-4">
+        <div className="fixed inset-0 bg-black bg-opacity-50 dark:bg-opacity-70 flex items-center justify-center z-50">
+          <div className="bg-white dark:bg-gray-800 rounded-lg p-6 w-full max-w-md">
+            <h3 className="text-lg font-semibold mb-4 text-gray-900 dark:text-gray-100">
               Add Media or URL {
                 uploadingFor === 'question' ? 'for Question' :
                 uploadingFor === 'explanation' ? 'for Explanation' :
@@ -541,9 +542,8 @@ const EnhancedCreateQuestionForm = ({ onQuestionCreated = () => {} }) => {
               }
             </h3>
             
-            {/* Media Type Toggle */}
             <div className="mb-4 flex space-x-4">
-              <label className="flex items-center">
+              <label className="flex items-center text-gray-700 dark:text-gray-300">
                 <input
                   type="radio"
                   name="mediaType"
@@ -554,7 +554,7 @@ const EnhancedCreateQuestionForm = ({ onQuestionCreated = () => {} }) => {
                 />
                 Upload File
               </label>
-              <label className="flex items-center">
+              <label className="flex items-center text-gray-700 dark:text-gray-300">
                 <input
                   type="radio"
                   name="mediaType"
@@ -570,13 +570,13 @@ const EnhancedCreateQuestionForm = ({ onQuestionCreated = () => {} }) => {
             <div className="mb-4">
               {mediaType === 'file' && !uploadedFiles.length ? (
                 <div className="flex items-center justify-center w-full">
-                  <label className="flex flex-col items-center justify-center w-full h-32 border-2 border-dashed rounded-lg cursor-pointer bg-gray-50 hover:bg-gray-100">
+                  <label className="flex flex-col items-center justify-center w-full h-32 border-2 border-dashed rounded-lg cursor-pointer bg-gray-50 dark:bg-gray-700 hover:bg-gray-100 dark:hover:bg-gray-600">
                     <div className="flex flex-col items-center justify-center pt-5 pb-6">
-                      <Upload className="w-8 h-8 mb-3 text-gray-400" />
-                      <p className="mb-2 text-sm text-gray-500">
+                      <Upload className="w-8 h-8 mb-3 text-gray-400 dark:text-gray-300" />
+                      <p className="mb-2 text-sm text-gray-500 dark:text-gray-300">
                         <span className="font-semibold">Click to upload</span> or drag and drop
                       </p>
-                      <p className="text-xs text-gray-500">
+                      <p className="text-xs text-gray-500 dark:text-gray-300">
                         Images, videos, PDFs (MAX. 10MB)
                       </p>
                     </div>
@@ -592,17 +592,17 @@ const EnhancedCreateQuestionForm = ({ onQuestionCreated = () => {} }) => {
               ) : mediaType === 'file' && uploadedFiles.length > 0 ? (
                 <div className="space-y-2">
                   {uploadedFiles.map((file, index) => (
-                    <div key={index} className="flex items-center justify-between p-3 bg-white border rounded-lg">
+                    <div key={index} className="flex items-center justify-between p-3 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg">
                       <div className="flex items-center overflow-hidden">
                         {getFileIcon(file)}
-                        <span className="truncate max-w-xs">{file.name}</span>
-                        <span className="text-xs text-gray-500 ml-2">
+                        <span className="truncate max-w-xs text-gray-800 dark:text-gray-200">{file.name}</span>
+                        <span className="text-xs text-gray-500 dark:text-gray-300 ml-2">
                           ({Math.round(file.size / 1024)} KB)
                         </span>
                       </div>
                       <div className="flex items-center">
                         {uploadSuccess && (
-                          <CheckCircle className="w-5 h-5 text-green-500 mr-2" />
+                          <CheckCircle className="w-5 h-5 text-green-500 dark:text-green-300 mr-2" />
                         )}
                         <button
                           type="button"
@@ -610,7 +610,7 @@ const EnhancedCreateQuestionForm = ({ onQuestionCreated = () => {} }) => {
                             const updatedFiles = uploadedFiles.filter((_, i) => i !== index);
                             setUploadedFiles(updatedFiles);
                           }}
-                          className="p-1 text-gray-500 rounded-full hover:bg-gray-100"
+                          className="p-1 text-gray-500 dark:text-gray-300 rounded-full hover:bg-gray-100 dark:hover:bg-gray-600"
                         >
                           <X size={18} />
                         </button>
@@ -625,12 +625,12 @@ const EnhancedCreateQuestionForm = ({ onQuestionCreated = () => {} }) => {
                     value={urlInput}
                     onChange={(e) => setUrlInput(e.target.value)}
                     placeholder="Paste URL (e.g., https://example.com/image.jpg)"
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-300"
                   />
                   <button
                     type="button"
                     onClick={handleAddUrl}
-                    className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 flex items-center"
+                    className="px-4 py-2 bg-blue-600 dark:bg-blue-500 text-white rounded hover:bg-blue-700 dark:hover:bg-blue-400 flex items-center"
                   >
                     <Link size={16} className="mr-2" />
                     Add URL
@@ -640,13 +640,13 @@ const EnhancedCreateQuestionForm = ({ onQuestionCreated = () => {} }) => {
             </div>
             
             {uploadError && (
-              <div className="mb-4 text-sm text-red-600">
+              <div className="mb-4 text-sm text-red-600 dark:text-red-300">
                 {uploadError}
               </div>
             )}
             
             {uploadSuccess && (
-              <div className="mb-4 text-sm text-green-600 flex items-center">
+              <div className="mb-4 text-sm text-green-600 dark:text-green-300 flex items-center">
                 <CheckCircle size={16} className="mr-1" />
                 {mediaType === 'file' ? 'File(s) uploaded successfully!' : 'URL added successfully!'}
               </div>
@@ -656,7 +656,7 @@ const EnhancedCreateQuestionForm = ({ onQuestionCreated = () => {} }) => {
               <button
                 type="button"
                 onClick={handleCancelUpload}
-                className="px-4 py-2 border border-gray-300 rounded text-gray-700 hover:bg-gray-100"
+                className="px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded hover:bg-gray-100 dark:hover:bg-gray-600"
               >
                 Cancel
               </button>
@@ -666,11 +666,11 @@ const EnhancedCreateQuestionForm = ({ onQuestionCreated = () => {} }) => {
                   type="button"
                   onClick={handleUploadMedia}
                   disabled={isUploading}
-                  className={`px-4 py-2 rounded ${
+                  className={`px-4 py-2 rounded flex items-center ${
                     isUploading
-                      ? 'bg-gray-400 cursor-not-allowed'
-                      : 'bg-blue-600 hover:bg-blue-700 text-white'
-                  } flex items-center`}
+                      ? 'bg-gray-400 dark:bg-gray-500 cursor-not-allowed'
+                      : 'bg-blue-600 dark:bg-blue-500 hover:bg-blue-700 dark:hover:bg-blue-400 text-white'
+                  }`}
                 >
                   <Upload size={16} className="mr-2" />
                   {isUploading ? 'Uploading...' : 'Upload'}
@@ -681,7 +681,7 @@ const EnhancedCreateQuestionForm = ({ onQuestionCreated = () => {} }) => {
                 <button
                   type="button"
                   onClick={() => setUploadingFor(null)}
-                  className="px-4 py-2 rounded bg-green-600 hover:bg-green-700 text-white"
+                  className="px-4 py-2 rounded bg-green-600 dark:bg-green-500 hover:bg-green-700 dark:hover:bg-green-400 text-white"
                 >
                   Done
                 </button>
@@ -692,9 +692,8 @@ const EnhancedCreateQuestionForm = ({ onQuestionCreated = () => {} }) => {
       )}
       
       <form onSubmit={handleSubmit}>
-        {/* Question Text */}
         <div className="mb-6">
-          <label className="block text-gray-700 font-medium mb-2" htmlFor="questionText">
+          <label className="block text-gray-700 dark:text-gray-300 font-medium mb-2" htmlFor="questionText">
             Question Text*
           </label>
           <textarea
@@ -703,23 +702,22 @@ const EnhancedCreateQuestionForm = ({ onQuestionCreated = () => {} }) => {
             value={formData.questionText}
             onChange={handleInputChange}
             rows="3"
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-300"
             placeholder="Enter the question text here..."
             required
           />
           {renderMediaButton('question', formData.questionMedia)}
         </div>
         
-        {/* Options and Correct Answer */}
         <div className="mb-6">
           <div className="flex justify-between items-center mb-2">
-            <label className="block text-gray-700 font-medium">
+            <label className="block text-gray-700 dark:text-gray-300 font-medium">
               Options* (Select the correct answer)
             </label>
             <button
               type="button"
               onClick={handleAddOption}
-              className="flex items-center text-blue-600 hover:text-blue-800"
+              className="flex items-center text-blue-600 dark:text-blue-300 hover:text-blue-800 dark:hover:text-blue-200"
             >
               <Plus size={16} className="mr-1" /> Add Option
             </button>
@@ -732,8 +730,8 @@ const EnhancedCreateQuestionForm = ({ onQuestionCreated = () => {} }) => {
                     onClick={() => handleCorrectAnswerSelect(index)}
                     className={`flex-shrink-0 w-6 h-6 rounded-full mr-3 flex items-center justify-center cursor-pointer ${
                       formData.correctAnswer === index
-                        ? 'bg-green-500 text-white'
-                        : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                        ? 'bg-green-500 dark:bg-green-400 text-white'
+                        : 'bg-gray-200 dark:bg-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-500'
                     }`}
                   >
                     {String.fromCharCode(65 + index)}
@@ -742,14 +740,14 @@ const EnhancedCreateQuestionForm = ({ onQuestionCreated = () => {} }) => {
                     type="text"
                     value={option}
                     onChange={(e) => handleOptionChange(index, e.target.value)}
-                    className="flex-grow px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="flex-grow px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-300"
                     placeholder={`Option ${String.fromCharCode(65 + index)}`}
                     required
                   />
                   <button
                     type="button"
                     onClick={() => handleRemoveOption(index)}
-                    className="ml-2 p-1 text-gray-500 hover:text-red-500"
+                    className="ml-2 p-1 text-gray-500 dark:text-gray-300 hover:text-red-500 dark:hover:text-red-400"
                     title="Remove option"
                   >
                     <Trash2 size={18} />
@@ -761,9 +759,8 @@ const EnhancedCreateQuestionForm = ({ onQuestionCreated = () => {} }) => {
           </div>
         </div>
         
-        {/* Explanation */}
         <div className="mb-6">
-          <label className="block text-gray-700 font-medium mb-2" htmlFor="explanation">
+          <label className="block text-gray-700 dark:text-gray-300 font-medium mb-2" htmlFor="explanation">
             Explanation*
           </label>
           <textarea
@@ -772,19 +769,18 @@ const EnhancedCreateQuestionForm = ({ onQuestionCreated = () => {} }) => {
             value={formData.explanation}
             onChange={handleInputChange}
             rows="3"
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-300"
             placeholder="Explain the correct answer..."
             required
           />
           {renderMediaButton('explanation', formData.explanationMedia)}
         </div>
         
-        {/* Difficulty */}
         <div className="mb-6">
-          <label className="block text-gray-700 font-medium mb-2">Difficulty*</label>
+          <label className="block text-gray-700 dark:text-gray-300 font-medium mb-2">Difficulty*</label>
           <div className="flex space-x-4">
             {['easy', 'medium', 'hard'].map((level) => (
-              <label key={level} className="flex items-center cursor-pointer">
+              <label key={level} className="flex items-center cursor-pointer text-gray-700 dark:text-gray-300">
                 <input
                   type="radio"
                   name="difficulty"
@@ -799,9 +795,8 @@ const EnhancedCreateQuestionForm = ({ onQuestionCreated = () => {} }) => {
           </div>
         </div>
         
-        {/* Category Buttons */}
         <div className="mb-6">
-          <label className="block text-gray-700 font-medium mb-2">Category*</label>
+          <label className="block text-gray-700 dark:text-gray-300 font-medium mb-2">Category*</label>
           <div className="flex gap-2">
             {['Basic Sciences', 'Organ Systems', 'Clinical Specialties'].map(cat => (
               <button
@@ -810,8 +805,8 @@ const EnhancedCreateQuestionForm = ({ onQuestionCreated = () => {} }) => {
                 onClick={() => handleCategoryChange(cat)}
                 className={`flex-1 py-3 text-center font-medium rounded ${
                   formData.category === cat
-                    ? 'bg-blue-500 text-white'
-                    : 'bg-blue-100 text-blue-800 hover:bg-blue-200'
+                    ? 'bg-blue-500 dark:bg-blue-400 text-white'
+                    : 'bg-blue-100 dark:bg-blue-900/50 text-blue-800 dark:text-blue-300 hover:bg-blue-200 dark:hover:bg-blue-800'
                 }`}
               >
                 {cat}
@@ -820,9 +815,8 @@ const EnhancedCreateQuestionForm = ({ onQuestionCreated = () => {} }) => {
           </div>
         </div>
         
-        {/* Subject Selection */}
         <div className="mb-6">
-          <label className="block text-gray-700 font-medium mb-2">
+          <label className="block text-gray-700 dark:text-gray-300 font-medium mb-2">
             Select Subjects* (Click to select/deselect)
           </label>
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
@@ -833,8 +827,8 @@ const EnhancedCreateQuestionForm = ({ onQuestionCreated = () => {} }) => {
                 onClick={() => handleSubjectToggle(subject)}
                 className={`py-2 px-3 rounded text-sm font-medium border ${
                   formData.subjects.some(s => s.name === subject)
-                    ? 'bg-blue-500 text-white border-blue-500'
-                    : 'bg-blue-50 text-blue-700 border-blue-200 hover:bg-blue-100'
+                    ? 'bg-blue-500 dark:bg-blue-400 text-white border-blue-500 dark:border-blue-400'
+                    : 'bg-blue-50 dark:bg-blue-900/50 text-blue-700 dark:text-blue-300 border-blue-200 dark:border-blue-700 hover:bg-blue-100 dark:hover:bg-blue-800'
                 }`}
               >
                 {subject}
@@ -843,15 +837,14 @@ const EnhancedCreateQuestionForm = ({ onQuestionCreated = () => {} }) => {
           </div>
         </div>
         
-        {/* Topic Selection */}
         {formData.subjects.length > 0 && (
           <div className="mb-6">
-            <label className="block text-gray-700 font-medium mb-2">
+            <label className="block text-gray-700 dark:text-gray-300 font-medium mb-2">
               Select Topics (Click to select/deselect)
             </label>
             {formData.subjects.map(subject => (
               <div key={subject.name} className="mb-4">
-                <h4 className="text-md font-semibold text-gray-700 mb-2">{subject.name}</h4>
+                <h4 className="text-md font-semibold text-gray-700 dark:text-gray-300 mb-2">{subject.name}</h4>
                 <div className="flex flex-wrap gap-2">
                   {(topicsBySubject[subject.name] || []).map((topic) => (
                     <button
@@ -860,8 +853,8 @@ const EnhancedCreateQuestionForm = ({ onQuestionCreated = () => {} }) => {
                       onClick={() => handleTopicToggle(topic, subject.name)}
                       className={`py-2 px-4 rounded text-sm font-medium border ${
                         subject.topics.includes(topic)
-                          ? 'bg-green-500 text-white border-green-500'
-                          : 'bg-green-50 text-green-700 border-green-200 hover:bg-green-100'
+                          ? 'bg-green-500 dark:bg-green-400 text-white border-green-500 dark:border-green-400'
+                          : 'bg-green-50 dark:bg-green-900/50 text-green-700 dark:text-green-300 border-green-200 dark:border-green-700 hover:bg-green-100 dark:hover:bg-green-800'
                       }`}
                     >
                       {topic}
@@ -873,22 +866,21 @@ const EnhancedCreateQuestionForm = ({ onQuestionCreated = () => {} }) => {
           </div>
         )}
         
-        {/* Tags */}
         <div className="mb-6">
-          <label className="block text-gray-700 font-medium mb-2">Tags (Optional)</label>
+          <label className="block text-gray-700 dark:text-gray-300 font-medium mb-2">Tags (Optional)</label>
           <div className="flex items-center mb-2">
             <input
               type="text"
               value={currentTag}
               onChange={(e) => setCurrentTag(e.target.value)}
               onKeyPress={handleKeyPress}
-              className="flex-grow px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="flex-grow px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-300"
               placeholder="Add a tag and press Enter..."
             />
             <button
               type="button"
               onClick={handleAddTag}
-              className="ml-2 px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+              className="ml-2 px-4 py-2 bg-blue-600 dark:bg-blue-500 text-white rounded hover:bg-blue-700 dark:hover:bg-blue-400"
             >
               Add
             </button>
@@ -897,13 +889,13 @@ const EnhancedCreateQuestionForm = ({ onQuestionCreated = () => {} }) => {
             {formData.tags.map((tag, index) => (
               <div
                 key={index}
-                className="flex items-center px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-sm"
+                className="flex items-center px-3 py-1 bg-blue-100 dark:bg-blue-900/50 text-blue-800 dark:text-blue-300 rounded-full text-sm"
               >
                 {tag}
                 <button
                   type="button"
                   onClick={() => handleRemoveTag(tag)}
-                  className="ml-2 text-gray-600 hover:text-red-600"
+                  className="ml-2 text-gray-600 dark:text-gray-300 hover:text-red-600 dark:hover:text-red-400"
                 >
                   <X size={14} />
                 </button>
@@ -912,9 +904,8 @@ const EnhancedCreateQuestionForm = ({ onQuestionCreated = () => {} }) => {
           </div>
         </div>
         
-        {/* Source URL */}
         <div className="mb-6">
-          <label className="block text-gray-700 font-medium mb-2" htmlFor="sourceUrl">
+          <label className="block text-gray-700 dark:text-gray-300 font-medium mb-2" htmlFor="sourceUrl">
             Source URL (Optional)
           </label>
           <input
@@ -923,21 +914,20 @@ const EnhancedCreateQuestionForm = ({ onQuestionCreated = () => {} }) => {
             type="url"
             value={formData.sourceUrl}
             onChange={handleInputChange}
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-300"
             placeholder="Enter source URL (e.g., https://example.com)"
           />
         </div>
         
-        {/* Submit Button */}
         <div className="flex justify-end">
           <button
             type="submit"
             disabled={isSubmitting}
             className={`px-6 py-2 rounded-md ${
               isSubmitting
-                ? 'bg-gray-400 cursor-not-allowed'
-                : 'bg-blue-600 hover:bg-blue-700'
-            } text-white font-medium`}
+                ? 'bg-gray-400 dark:bg-gray-500 cursor-not-allowed'
+                : 'bg-blue-600 dark:bg-blue-500 hover:bg-blue-700 dark:hover:bg-blue-400 text-white'
+            } font-medium`}
           >
             {isSubmitting ? 'Creating...' : 'Create Question'}
           </button>

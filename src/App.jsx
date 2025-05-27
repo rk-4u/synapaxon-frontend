@@ -23,6 +23,7 @@ import Content from './admin/pages/Content';
 import Questions from './admin/pages/Questions';
 import Settings from './admin/pages/Settings';
 import Users from './admin/pages/Users';
+import AIQuestionAssistant from './pages/AIQuestionAssistant';
 
 function App() {
   return (
@@ -44,6 +45,8 @@ function App() {
         </Route>
         <Route path="/dashboard/test-runner" element={<ProtectedRoute><TestRunnerPage /></ProtectedRoute>} />
         <Route path="/dashboard/test-detail/:testId" element={<ProtectedRoute><TestDetailPage /></ProtectedRoute>} />
+
+        <Route path="/dashboard/create/AIQuestionAssistant" element={<ProtectedRoute><AIQuestionAssistant /></ProtectedRoute>} />
 
         {/* Admin Routes */}
         <Route path="/admin/*" element={<ProtectedRoute><AdminLayout /></ProtectedRoute>}>

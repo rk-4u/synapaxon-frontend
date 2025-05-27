@@ -20,8 +20,6 @@ export default function QuestionFilterPage() {
   const [questions, setQuestions] = useState([]);
   const [activeSubject, setActiveSubject] = useState(null);
   const [questionStatusFilter, setQuestionStatusFilter] = useState("all");
-  const [page, setPage] = useState(1);
-  const [limit] = useState(150);
   const [totalQuestions, setTotalQuestions] = useState(0);
   const token = localStorage.getItem("token");
 
@@ -30,7 +28,6 @@ export default function QuestionFilterPage() {
     setSelectedSubjects(new Set());
     setSelectedTopics(new Map());
     setActiveSubject(null);
-    setPage(1);
   }, [questionStatusFilter, difficulty, selectedCategory]);
 
   // Normalize StudentQuestion subjects to match Question schema
@@ -53,25 +50,23 @@ export default function QuestionFilterPage() {
         categoryCountMap[cat.name] = { all: 0, correct: 0, incorrect: 0, unattempted: 0, flagged: 0 };
       });
 
-      // Build API query for history
+      // Build API query for history (without pagination)
       const historyQuery = `/api/student-questions/history?category=${selectedCategory}${
         difficulty !== "all" ? `&difficulty=${difficulty}` : ""
-      }&page=${page}&limit=${limit}`;
+      }`;
       const historyRes = await axios.get(historyQuery, {
         headers: { Authorization: `Bearer ${token}` },
       });
       const historyQuestions = (historyRes.data.data || []).map(normalizeStudentQuestion);
-      const totalHistory = historyRes.data.total || 0;
 
-      // Build API query for all questions
+      // Build API query for all questions (without pagination)
       const questionsQuery = `/api/questions?category=${selectedCategory}&createdBy=me${
         difficulty !== "all" ? `&difficulty=${difficulty}` : ""
-      }&page=${page}&limit=${limit}`;
+      }`;
       const allQuestionsRes = await axios.get(questionsQuery, {
         headers: { Authorization: `Bearer ${token}` },
       });
       const allQuestions = allQuestionsRes.data.data || [];
-      const totalAllQuestions = allQuestionsRes.data.total || 0;
 
       // Compute status counts
       const correctIds = historyQuestions
@@ -89,7 +84,7 @@ export default function QuestionFilterPage() {
       );
 
       categoryCountMap[selectedCategory] = {
-        all: totalAllQuestions,
+        all: allQuestions.length,
         correct: correctIds.length,
         incorrect: incorrectIds.length,
         unattempted: unattemptedIds.length,
@@ -136,6 +131,7 @@ export default function QuestionFilterPage() {
         const topics = [...new Set(subjectQuestions.flatMap((q) => 
           q.subjects.find(s => s.name === subject)?.topics || []
         ))].filter((t) => (topicsBySubject[subject] || []).includes(t));
+        
         topics.forEach((topic) => {
           const topicQuestions = subjectQuestions.filter((q) => 
             q.subjects.some(s => s.name === subject && s.topics.includes(topic))
@@ -176,7 +172,7 @@ export default function QuestionFilterPage() {
       setCategoryCounts(categoryCountMap);
       setSubjectCounts(subjectCountMap);
       setTopicCounts(topicCountMap);
-      setTotalQuestions(totalAllQuestions);
+      setTotalQuestions(allQuestions.length);
     } catch (err) {
       console.error("Error fetching counts:", err);
       setCategoryCounts(categoryCountMap);
@@ -216,53 +212,53 @@ export default function QuestionFilterPage() {
       setIsLoading(true);
       let allQuestions = [];
 
-      const queryParams = `/api/student-questions/history?category=${selectedCategory}${
+      const baseHistoryQuery = `/api/student-questions/history?category=${selectedCategory}${
         difficulty !== "all" ? `&difficulty=${difficulty}` : ""
-      }&page=${page}&limit=${limit}`;
+      }`;
 
       if (questionStatusFilter === "correct") {
-        const res = await axios.get(`${queryParams}&isCorrect=true`, {
+        const res = await axios.get(`${baseHistoryQuery}&isCorrect=true`, {
           headers: { Authorization: `Bearer ${token}` },
         });
         allQuestions = res.data.data.map(normalizeStudentQuestion);
-        setTotalQuestions(res.data.total);
+        setTotalQuestions(res.data.count || res.data.data.length);
       } else if (questionStatusFilter === "incorrect") {
-        const res = await axios.get(`${queryParams}&isCorrect=false&flagged=false`, {
+        const res = await axios.get(`${baseHistoryQuery}&isCorrect=false&flagged=false`, {
           headers: { Authorization: `Bearer ${token}` },
         });
         allQuestions = res.data.data.map(normalizeStudentQuestion);
-        setTotalQuestions(res.data.total);
+        setTotalQuestions(res.data.count || res.data.data.length);
       } else if (questionStatusFilter === "flagged") {
-        const res = await axios.get(`${queryParams}&flagged=true`, {
+        const res = await axios.get(`${baseHistoryQuery}&flagged=true`, {
           headers: { Authorization: `Bearer ${token}` },
         });
         allQuestions = res.data.data.map(normalizeStudentQuestion);
-        setTotalQuestions(res.data.total);
+        setTotalQuestions(res.data.count || res.data.data.length);
       } else if (questionStatusFilter === "unattempted") {
         const allQuestionsRes = await axios.get(
           `/api/questions?category=${selectedCategory}&createdBy=me${
             difficulty !== "all" ? `&difficulty=${difficulty}` : ""
-          }&page=${page}&limit=${limit}`,
+          }`,
           { headers: { Authorization: `Bearer ${token}` } }
         );
-        const historyRes = await axios.get(queryParams, {
+        const historyRes = await axios.get(baseHistoryQuery, {
           headers: { Authorization: `Bearer ${token}` },
         });
         const allAvailableQuestions = allQuestionsRes.data.data || [];
         const historyQuestions = historyRes.data.data || [];
         const historyIds = historyQuestions.map((q) => q.question._id.toString());
         allQuestions = allAvailableQuestions.filter((q) => !historyIds.includes(q._id.toString()));
-        setTotalQuestions(allQuestionsRes.data.total - historyQuestions.length);
+        setTotalQuestions(allQuestions.length);
       } else {
         // questionStatusFilter === "all"
         const res = await axios.get(
           `/api/questions?category=${selectedCategory}&createdBy=me${
             difficulty !== "all" ? `&difficulty=${difficulty}` : ""
-          }&page=${page}&limit=${limit}`,
+          }`,
           { headers: { Authorization: `Bearer ${token}` } }
         );
         allQuestions = res.data.data || [];
-        setTotalQuestions(res.data.total);
+        setTotalQuestions(res.data.count || allQuestions.length);
       }
 
       setQuestions(allQuestions);
@@ -280,7 +276,7 @@ export default function QuestionFilterPage() {
       fetchCounts();
       fetchQuestions();
     }
-  }, [questionStatusFilter, difficulty, selectedCategory, page]);
+  }, [questionStatusFilter, difficulty, selectedCategory]);
 
   const toggleSubject = (subject) => {
     setSelectedSubjects((prev) => {
@@ -324,7 +320,11 @@ export default function QuestionFilterPage() {
 
     setIsLoading(true);
     try {
-      sessionStorage.removeItem("testData");
+      // Clear any existing test data
+      const existingTestData = sessionStorage.getItem("testData");
+      if (existingTestData) {
+        sessionStorage.removeItem("testData");
+      }
 
       const shuffledQuestions = [...filteredQuestions].sort(() => Math.random() - 0.5);
       const selectedQuestions = shuffledQuestions.slice(0, Math.min(numberOfItems, filteredQuestions.length));
@@ -575,25 +575,6 @@ export default function QuestionFilterPage() {
               </span>
             )}
           </p>
-          <div className="mt-4">
-            <button
-              onClick={() => setPage((prev) => Math.max(prev - 1, 1))}
-              disabled={page === 1}
-              className="px-4 py-2 bg-blue-500 text-white rounded disabled:bg-gray-300 mr-2"
-            >
-              Previous
-            </button>
-            <span>
-              Page {page} of {Math.ceil(totalQuestions / limit)}
-            </span>
-            <button
-              onClick={() => setPage((prev) => prev + 1)}
-              disabled={page >= Math.ceil(totalQuestions / limit)}
-              className="px-4 py-2 bg-blue-500 text-white rounded disabled:bg-gray-300 ml-2"
-            >
-              Next
-            </button>
-          </div>
         </div>
 
         <div className="mb-8">
