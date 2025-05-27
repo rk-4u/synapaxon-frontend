@@ -3,6 +3,7 @@ import { FiHome, FiPlayCircle, FiClock, FiEdit, FiBookOpen, FiCheckCircle } from
 import { FiTrendingUp, FiLayers, FiActivity, FiFileText } from 'react-icons/fi';
 import { useAuth } from '../contexts/AuthContext';
 import { useNavigate, Outlet, useLocation } from 'react-router-dom';
+import TestDetailPage from './TestDetailPage';
 
 function Dashboard() {
   const { currentUser, logout } = useAuth();
@@ -47,6 +48,8 @@ function Dashboard() {
       setActiveComponent('test');
     } else if (path.includes('/history')) {
       setActiveComponent('history');
+    } else if (path.includes('/testdetail')) {
+      setActiveComponent('testdetail');
     } else if (path.includes('/create')) {
       setActiveComponent('create');
     } else if (path.includes('/my-questions')) {

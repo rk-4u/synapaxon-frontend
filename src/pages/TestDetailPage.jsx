@@ -1,42 +1,72 @@
-import React from "react";
-import { useState, useEffect } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import React, { useEffect, useRef, useState } from "react";
 import {
-  ChevronDown,
-  ChevronUp,
-  Image as ImageIcon,
-  Video,
+  Brain,
+  Activity,
+  HeartPulse,
+  Microscope,
+  Stethoscope,
+  TrendingUp,
+  BarChart,
+  Star,
+  CheckCircle,
+  XCircle,
+  Database,
+  FileText,
+  AlertCircle,
+  Clock,
 } from "lucide-react";
-import MediaDisplay from "./MediaDisplay";
+import {
+  PieChart,
+  Pie,
+  Cell,
+  ResponsiveContainer,
+  Label,
+  BarChart as RechartsBarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  Legend,
+} from "recharts";
+import { AnimatedDiv } from "../components/ui/animatediv";
+import { DataTable } from "../components/ui/datatable";
+import {
+  Tooltip as TooltipComponent,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "../components/ui/tooltip";
+import {
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+} from "../components/ui/tabs";
+import {
+  Card,
+  CardHeader,
+  CardTitle,
+  CardContent,
+} from "../components/ui/card";
+import { motion } from "framer-motion";
+import PerformanceOverviewCard from "../components/PerformanceOverviewCard";
+import FilterSection from "../components/FilterSection";
+import QuestionList from "../components/QuestionList";
+import { useNavigate, useParams } from "react-router-dom";
 
-const ErrorBoundary = ({ children }) => {
-  const [hasError, setHasError] = useState(false);
 
-  useEffect(() => {
-    setHasError(false);
-  }, [children]);
-
-  if (hasError) {
-    return (
-      <p className="text-red-500 text-sm">
-        Error loading media. Please try again.
-      </p>
-    );
-  }
-
-  return (
-    <React.Fragment>
-      {React.Children.map(children, (child) =>
-        React.cloneElement(child, {
-          onError: () => setHasError(true),
-        })
-      )}
-    </React.Fragment>
-  );
-};
-
-const TestDetailPage = () => {
+const OverallPerformanceView = () => {
+  const statsRef = useRef(null);
+  const [activeTab, setActiveTab] = useState("overview");
+  const [activeFilter, setActiveFilter] = useState("all");
   const { testId } = useParams();
+  const navigate = useNavigate();
+  const [subjectPerformanceBarData, getSubjectPerformanceBarData] = useState(
+    []
+  );
+
+  // API Data States
   const [testDetail, setTestDetail] = useState(null);
   const [questions, setQuestions] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -48,12 +78,32 @@ const TestDetailPage = () => {
     pages: 1,
     limit: 20,
   });
-  const [expandedQuestions, setExpandedQuestions] = useState({});
-  const [isSummaryOpen, setIsSummaryOpen] = useState(true);
-  const [isFiltersOpen, setIsFiltersOpen] = useState(true);
-  const [isAnalyticsOpen, setIsAnalyticsOpen] = useState(true);
-  const [questionDetails, setQuestionDetails] = useState({});
-  const navigate = useNavigate();
+  // const [expandedQuestions, setExpandedQuestions] = useState({});
+  const [dataByCategory, setDataByCategory] = useState({});
+
+  // Modal states
+  // const [modalOpen, setModalOpen] = useState(false);
+  // const [modalProps, setModalProps] = useState({
+  //   category: "",
+  //   type: "",
+  //   count: 0,
+  // });
+
+  // const scrollToTop = () => {
+  //   window.scrollTo({ top: 0, behavior: "smooth" });
+  // };
+
+  // Handle question click for modal
+  // const handleQuestionClick = (category, type, count) => {
+  //   setModalProps({ category, type, count });
+  //   setModalOpen(true);
+  // };
+
+  // Helper function to safely convert to number and handle NaN
+  const safeNumber = (value, defaultValue = 0) => {
+    const num = Number(value);
+    return isNaN(num) || !isFinite(num) ? defaultValue : num;
+  };
 
   useEffect(() => {
     const fetchTestDetail = async () => {
@@ -85,14 +135,24 @@ const TestDetailPage = () => {
           throw new Error(sessionData.message || "Test session not found");
         }
 
-        // Fetch questions with filter and pagination
+        // Fetch paginated questions (filtered)
         let query = `page=${pagination.current}&limit=${pagination.limit}`;
         if (filter !== "all") {
           query += `&filter=${filter}`;
         }
 
         const questionsResponse = await fetch(
-          `https://synapaxon-backend.onrender.com/api/student-questions/history/${testId}?${query}`,
+          `https://synapaxon-backend.onrender.com/api/student-questions/history/${testId}`,
+          {
+            headers: {
+              Authorization: `Bearer ${token}`,
+              "Content-Type": "application/json",
+            },
+          }
+        );
+
+        const allquestionsResponse = await fetch(
+          `https://synapaxon-backend.onrender.com/api/student-questions/history`,
           {
             headers: {
               Authorization: `Bearer ${token}`,
@@ -108,71 +168,106 @@ const TestDetailPage = () => {
         }
 
         const questionsData = await questionsResponse.json();
+        const allquestionsData = await allquestionsResponse.json();
+
         if (!questionsData.success) {
           throw new Error(
             questionsData.message || "Failed to fetch test questions"
           );
         }
 
-        setTestDetail({
-          _id: sessionData.data._id,
-          startedAt: sessionData.data.startedAt,
-          completedAt: sessionData.data.completedAt,
-          status: sessionData.data.status,
-          correctAnswers: sessionData.data.correctAnswers,
-          totalQuestions: sessionData.data.totalQuestions,
-          scorePercentage: sessionData.data.scorePercentage,
-          filters: sessionData.data.filters,
-        });
+        const questionsList = questionsData.data || [];
 
-        setQuestions(questionsData.data || []);
+        const groupedData = Object.values(
+          (allquestionsData.data || []).reduce((acc, q) => {
+            const category = q.category || "Uncategorized";
+            const subjects = q.subjects?.length > 0 ? q.subjects : ["Unknown"];
+
+            subjects.forEach((subj) => {
+              const subjectName =
+                typeof subj === "string" ? subj : subj.name || "Unknown";
+              const key = `${category}|||${subjectName}`;
+
+              if (!acc[key]) {
+                acc[key] = {
+                  category,
+                  subject: subjectName,
+                  questions: [],
+                  correctAnswers: 0,
+                  incorrectAnswers: 0,
+                };
+              }
+
+              const isCorrect = !!q.isCorrect;
+              acc[key].questions.push({ ...q, isCorrect });
+              if (isCorrect) acc[key].correctAnswers += 1;
+              else acc[key].incorrectAnswers += 1;
+            });
+
+            return acc;
+          }, {})
+        );
+        const dataByCategory = groupedData.reduce((acc, item) => {
+          if (!acc[item.category]) {
+            acc[item.category] = [];
+          }
+          acc[item.category].push(item);
+          return acc;
+        }, {});
+        const subjectPerformanceBarData = groupedData.map((item) => {
+          const correct = safeNumber(item.correctAnswers);
+          const incorrect = safeNumber(item.incorrectAnswers);
+          const total = correct + incorrect;
+          const correctPercent = total ? (correct / total) * 100 : 0;
+          const incorrectPercent = total ? (incorrect / total) * 100 : 0;
+
+          return {
+            subject: item.subject || "Unknown",
+            Correct: +correctPercent.toFixed(2),
+            Incorrect: +incorrectPercent.toFixed(2),
+          };
+        });
+        getSubjectPerformanceBarData(subjectPerformanceBarData);
+        setTestDetail(sessionData.data);
+        setQuestions(questionsList);
+        setDataByCategory(dataByCategory);
         setPagination({
           current: questionsData.pagination?.current || 1,
           pages: questionsData.pagination?.pages || 1,
           limit: questionsData.pagination?.limit || 20,
         });
 
-        // Fetch analytics data
-        const allQuestionsResponse = await fetch(
-          `https://synapaxon-backend.onrender.com/api/student-questions/history/${testId}`,
-          {
-            headers: {
-              Authorization: `Bearer ${token}`,
-              "Content-Type": "application/json",
-            },
-          }
-        );
-
-        const allQuestionsData = await allQuestionsResponse.json();
-        if (allQuestionsData.success && allQuestionsData.data.length > 0) {
-          const categoryStats = allQuestionsData.data.reduce((acc, q) => {
+        // Compute analytics from the same paginated data
+        if (questionsList.length > 0) {
+          const categoryStats = questionsList.reduce((acc, q) => {
             const category = q.category || "Unknown";
             if (!acc[category]) {
-              acc[category] = { correct: 0, total: 0 };
+              acc[category] = { correct: 0, total: 0, incorrect: 0 };
             }
             acc[category].total += 1;
             if (q.isCorrect) acc[category].correct += 1;
+            else acc[category].incorrect += 1;
             return acc;
           }, {});
 
-          const subjectStats = allQuestionsData.data.reduce((acc, q) => {
-            const subject = q.subject || "Unknown";
+          const subjectStats = questionsList.reduce((acc, q) => {
+            const subject = q.question?.subject || "Unknown";
             if (!acc[subject]) {
-              acc[subject] = { correct: 0, total: 0 };
+              acc[subject] = { correct: 0, total: 0, incorrect: 0 };
             }
             acc[subject].total += 1;
             if (q.isCorrect) acc[subject].correct += 1;
+            else acc[subject].incorrect += 1;
             return acc;
           }, {});
 
           const questionStats = {
-            correct: allQuestionsData.data.filter((q) => q.isCorrect).length,
-            incorrect: allQuestionsData.data.filter(
+            correct: questionsList.filter((q) => q.isCorrect).length,
+            incorrect: questionsList.filter(
               (q) => !q.isCorrect && q.selectedAnswer !== -1
             ).length,
-            flagged: allQuestionsData.data.filter(
-              (q) => q.selectedAnswer === -1
-            ).length,
+            flagged: questionsList.filter((q) => q.selectedAnswer === -1)
+              .length,
             avgTimePerQuestion: sessionData.data.completedAt
               ? (() => {
                   const start = new Date(sessionData.data.startedAt);
@@ -186,69 +281,52 @@ const TestDetailPage = () => {
           };
 
           setAnalytics({ categoryStats, subjectStats, questionStats });
-        } else {
-          setAnalytics({
-            categoryStats: {},
-            subjectStats: {},
-            questionStats: {
-              correct: 0,
-              incorrect: 0,
-              flagged: 0,
-              avgTimePerQuestion: "N/A",
-            },
-          });
         }
 
-        // Fetch additional question details (explanations and media)
-        const questionDetailsPromises = questionsData.data.map(
-          async (question) => {
-            try {
-              const response = await fetch(
-                `https://synapaxon-backend.onrender.com/api/questions/${question.question?._id}`,
-                {
-                  headers: {
-                    Authorization: `Bearer ${token}`,
-                    "Content-Type": "application/json",
-                  },
-                }
-              );
-              if (response.ok) {
-                const questionData = await response.json();
-                if (questionData.success) {
-                  return { [question._id]: questionData.data };
-                }
-              }
-              return {
-                [question._id]: {
-                  explanation: "No explanation available",
-                  questionMedia: [],
-                  explanationMedia: [],
-                  options: [],
-                },
-              };
-            } catch (err) {
-              console.error(
-                `Error fetching details for question ${question._id}:`,
-                err
-              );
-              return {
-                [question._id]: {
-                  explanation: "Error fetching explanation",
-                  questionMedia: [],
-                  explanationMedia: [],
-                  options: [],
-                },
-              };
-            }
-          }
-        );
+        // Fetch additional question details
+        // const questionDetailsPromises = questionsList.map(async (question) => {
+        //   try {
+        //     const response = await fetch(
+        //       `https://synapaxon-backend.onrender.com/api/questions/${question.question?._id}`,
+        //       {
+        //         headers: {
+        //           Authorization: `Bearer ${token}`,
+        //           "Content-Type": "application/json",
+        //         },
+        //       }
+        //     );
+        //     if (response.ok) {
+        //       const questionData = await response.json();
+        //       if (questionData.success) {
+        //         return { [question._id]: questionData.data };
+        //       }
+        //     }
+        //     return {
+        //       [question._id]: {
+        //         explanation: "No explanation available",
+        //         media: null,
+        //       },
+        //     };
+        //   } catch (err) {
+        //     console.error(
+        //       `Error fetching details for question ${question._id}:`,
+        //       err
+        //     );
+        //     return {
+        //       [question._id]: {
+        //         explanation: "Error fetching explanation",
+        //         media: null,
+        //       },
+        //     };
+        //   }
+        // });
 
-        const questionDetailsArray = await Promise.all(questionDetailsPromises);
-        const mergedQuestionDetails = questionDetailsArray.reduce(
-          (acc, curr) => ({ ...acc, ...curr }),
-          {}
-        );
-        setQuestionDetails(mergedQuestionDetails);
+        // const questionDetailsArray = await Promise.all(questionDetailsPromises);
+        // const mergedQuestionDetails = questionDetailsArray.reduce(
+        //   (acc, curr) => ({ ...acc, ...curr }),
+        //   {}
+        // );
+        // setQuestionDetails(mergedQuestionDetails);
       } catch (err) {
         console.error("Error fetching test details:", err);
         setError(err.message);
@@ -262,678 +340,483 @@ const TestDetailPage = () => {
     }
   }, [testId, filter, pagination.current]);
 
-  const handleFilterChange = (newFilter) => {
-    setFilter(newFilter);
-    setPagination((prev) => ({ ...prev, current: 1 }));
+  // Transform API data for charts
+  const getCorrectVsIncorrectData = () => {
+    if (!testDetail || !dataByCategory) return [];
+
+    let totalCorrect = 0;
+    let totalIncorrect = 0;
+
+    Object.values(dataByCategory).forEach((subjects) => {
+      subjects.forEach((item) => {
+        totalCorrect += safeNumber(item.correctAnswers);
+        totalIncorrect += safeNumber(item.incorrectAnswers);
+      });
+    });
+
+    // Optionally add flaggedAnswers to incorrect if needed
+    totalIncorrect += safeNumber(testDetail.flaggedAnswers);
+
+    return [
+      { name: "Correct", value: totalCorrect, color: "#10b981" },
+      { name: "Incorrect", value: totalIncorrect, color: "#ef4444" },
+    ];
   };
 
-  const handlePageChange = (page) => {
-    setPagination((prev) => ({ ...prev, current: page }));
+  const getUsedVsUnusedData = () => {
+    if (!testDetail) return [];
+
+    const totalQuestions = safeNumber(
+      testDetail.totalQuestions - testDetail.flaggedAnswers
+    );
+
+    const unused = Math.max(0, testDetail.flaggedAnswers);
+
+    return [
+      { name: "Used", value: totalQuestions, color: "#3b82f6" },
+      { name: "Unused", value: unused, color: "#9ca3af" },
+    ];
   };
 
-  const toggleQuestion = (questionId) => {
-    setExpandedQuestions((prev) => ({
-      ...prev,
-      [questionId]: !prev[questionId],
-    }));
+  // Updated function to generate stacked horizontal bar chart data with dummy data matching the image
+
+  // Transform analytics data for tables
+  const getCategoryTableData = () => {
+    if (!analytics.categoryStats) return [];
+    return Object.entries(analytics.categoryStats).map(([name, stats]) => {
+      const correct = safeNumber(stats.correct);
+      const incorrect = safeNumber(stats.incorrect);
+      const total = safeNumber(stats.total);
+      const ratio = total > 0 ? Math.round((correct / total) * 100) : 0;
+
+      return {
+        name,
+        correct,
+        incorrect,
+        ratio: safeNumber(ratio),
+      };
+    });
   };
 
-  const formatDate = (dateString) => {
-    if (!dateString) return "N/A";
-    const date = new Date(dateString);
-    return new Intl.DateTimeFormat("en-US", {
-      month: "short",
-      day: "numeric",
-      year: "numeric",
-      hour: "numeric",
-      minute: "numeric",
-      hour12: true,
-    }).format(date);
-  };
+  const getSubjectTableData = () => {
+    if (!analytics.subjectStats) return [];
+    return Object.entries(analytics.subjectStats).map(([name, stats]) => {
+      const correct = safeNumber(stats.correct);
+      const incorrect = safeNumber(stats.incorrect);
+      const total = safeNumber(stats.total);
+      const ratio = total > 0 ? Math.round((correct / total) * 100) : 0;
 
-  const formatDuration = (startDate, endDate) => {
-    if (!endDate) return "In Progress";
-    const start = new Date(startDate);
-    const end = new Date(endDate);
-    const diffMs = end - start;
-    const minutes = Math.floor(diffMs / 60000);
-    const seconds = Math.floor((diffMs % 60000) / 1000);
-    return `${minutes}m ${seconds}s`;
+      return {
+        name,
+        correct,
+        incorrect,
+        ratio: safeNumber(ratio),
+      };
+    });
   };
 
   if (loading) {
     return (
-      <div className="flex justify-center items-center min-h-screen bg-gray-50">
-        <div className="animate-spin rounded-full h-12 w-12 border-t-4 border-blue-600"></div>
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <p className="text-gray-600">Loading test details...</p>
+        </div>
       </div>
     );
   }
 
   if (error) {
     return (
-      <div className="max-w-[95%] mx-auto mt-12 p-8 bg-red-50 border border-red-300 rounded-2xl shadow-lg">
-        <div className="flex items-center">
-          <svg
-            className="w-8 h-8 text-red-600 mr-3"
-            fill="none"
-            viewBox="0 0 24 24"
-            stroke="currentColor"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-            />
-          </svg>
-          <span className="text-red-800 text-lg font-semibold">{error}</span>
-        </div>
-      </div>
-    );
-  }
-
-  if (!testDetail) {
-    return (
-      <div className="max-w-[95%] mx-auto mt-12 p-8 bg-yellow-50 border border-yellow-300 rounded-2xl shadow-lg">
-        <div className="flex items-center">
-          <svg
-            className="w-8 h-8 text-yellow-600 mr-3"
-            fill="none"
-            viewBox="0 0 24 24"
-            stroke="currentColor"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-            />
-          </svg>
-          <span className="text-yellow-800 text-lg font-semibold">
-            Test not found
-          </span>
-        </div>
-      </div>
-    );
-  }
-
-  return (
-    <div className="min-h-screen bg-gray-50 py-12">
-      <div className="max-w-[95%] mx-auto px-6">
-        <div className="mb-8">
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-center">
+          <AlertCircle className="h-12 w-12 text-red-500 mx-auto mb-4" />
+          <p className="text-red-600 mb-4">Error: {error}</p>
           <button
-            onClick={() => navigate("/dashboard")}
-            className="flex items-center text-indigo-600 hover:text-indigo-800 transition-colors text-lg font-semibold"
+            onClick={() => window.location.reload()}
+            className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
           >
-            <svg
-              className="w-6 h-6 mr-2"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M15 19l-7-7 7-7"
-              />
-            </svg>
-            Back to Dashboard
+            Retry
           </button>
         </div>
-
-        <div className="bg-white rounded-2xl shadow-xl overflow-hidden">
-          <div className="bg-gradient-to-r from-blue-700 to-indigo-600 p-8 text-white">
-            <h1 className="text-3xl font-extrabold tracking-tight">
-              Test Details
-            </h1>
-          </div>
-
-          <div className="p-8 flex lg:flex-row flex-col gap-6">
-            {/* Left Column: Test Summary, Filters, Performance Breakdown */}
-            <div className="w-full lg:w-[45%] flex flex-col gap-6">
-              {/* Test Summary & Performance */}
-              <div className="border-b border-gray-200">
-                <button
-                  onClick={() => setIsSummaryOpen(!isSummaryOpen)}
-                  className="w-full p-6 flex justify-between items-center text-left bg-gray-50 hover:bg-gray-100 transition-colors"
-                >
-                  <h2 className="text-2xl font-semibold text-gray-900">
-                    Test Summary & Performance
-                  </h2>
-                  {isSummaryOpen ? (
-                    <ChevronUp className="w-6 h-6 text-gray-600" />
-                  ) : (
-                    <ChevronDown className="w-6 h-6 text-gray-600" />
-                  )}
-                </button>
-                {isSummaryOpen && (
-                  <div className="p-6 bg-gray-50">
-                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                      <div className="bg-white p-6 rounded-xl shadow-sm hover:shadow-lg transition-all duration-300 transform hover:-translate-y-1">
-                        <h3 className="text-xl font-semibold text-gray-900 mb-4">
-                          Summary
-                        </h3>
-                        <div className="space-y-4 text-base">
-                          <div className="flex justify-between">
-                            <span className="text-gray-600">Date</span>
-                            <span className="font-medium text-gray-900">
-                              {formatDate(testDetail.startedAt)}
-                            </span>
-                          </div>
-                          <div className="flex justify-between">
-                            <span className="text-gray-600">Status</span>
-                            <span
-                              className={`font-medium ${
-                                testDetail.status === "succeeded"
-                                  ? "text-green-600"
-                                  : testDetail.status === "canceled"
-                                  ? "text-red-600"
-                                  : "text-yellow-600"
-                              }`}
-                            >
-                              {testDetail.status === "succeeded"
-                                ? "Completed"
-                                : testDetail.status === "canceled"
-                                ? "Canceled"
-                                : "In Progress"}
-                            </span>
-                          </div>
-                          <div className="flex justify-between">
-                            <span className="text-gray-600">Duration</span>
-                            <span className="font-medium text-gray-900">
-                              {formatDuration(
-                                testDetail.startedAt,
-                                testDetail.completedAt
-                              )}
-                            </span>
-                          </div>
-                          <div className="flex justify-between">
-                            <span className="text-gray-600">
-                              Total Questions
-                            </span>
-                            <span className="font-medium text-gray-900">
-                              {testDetail.totalQuestions}
-                            </span>
-                          </div>
-                        </div>
-                      </div>
-                      <div className="bg-white p-6 rounded-xl shadow-sm hover:shadow-lg transition-all duration-300 transform hover:-translate-y-1">
-                        <h3 className="text-xl font-semibold text-gray-900 mb-4">
-                          Performance
-                        </h3>
-                        <div className="space-y-4 text-base">
-                          <div className="flex justify-between">
-                            <span className="text-gray-600">Score</span>
-                            <span className="font-medium text-gray-900">
-                              {testDetail.correctAnswers}/
-                              {testDetail.totalQuestions}
-                            </span>
-                          </div>
-                          <div className="flex justify-between">
-                            <span className="text-gray-600">Percentage</span>
-                            <span
-                              className={`font-medium ${
-                                testDetail.scorePercentage >= 70
-                                  ? "text-green-600"
-                                  : testDetail.scorePercentage >= 40
-                                  ? "text-yellow-600"
-                                  : "text-red-600"
-                              }`}
-                            >
-                              {testDetail.scorePercentage}%
-                            </span>
-                          </div>
-                          <div className="mt-4">
-                            <div className="flex items-center justify-between text-sm text-gray-600 mb-2">
-                              <span>Progress</span>
-                              <span>{testDetail.scorePercentage}%</span>
-                            </div>
-                            <div className="w-full bg-gray-200 rounded-full h-3">
-                              <div
-                                className={`h-3 rounded-full ${
-                                  testDetail.scorePercentage >= 70
-                                    ? "bg-green-500"
-                                    : testDetail.scorePercentage >= 40
-                                    ? "bg-yellow-500"
-                                    : "bg-red-500"
-                                }`}
-                                style={{
-                                  width: `${testDetail.scorePercentage}%`,
-                                }}
-                              ></div>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                )}
-              </div>
-
-              {/* Test Filters */}
-              <div className="border-b border-gray-200">
-                <button
-                  onClick={() => setIsFiltersOpen(!isFiltersOpen)}
-                  className="w-full p-6 flex justify-between items-center text-left bg-gray-50 hover:bg-gray-100 transition-colors"
-                >
-                  <h2 className="text-2xl font-semibold text-gray-900">
-                    Test Filters
-                  </h2>
-                  {isFiltersOpen ? (
-                    <ChevronUp className="w-6 h-6 text-gray-600" />
-                  ) : (
-                    <ChevronDown className="w-6 h-6 text-gray-600" />
-                  )}
-                </button>
-                {isFiltersOpen && (
-                  <div className="p-6 bg-gray-50">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 text-base">
-                      <div className="bg-white p-6 rounded-xl shadow-sm hover:shadow-lg transition-all duration-300 transform hover:-translate-y-1">
-                        <span className="text-gray-600 block mb-2">
-                          Difficulty
-                        </span>
-                        <span className="font-medium text-gray-900 capitalize">
-                          {testDetail.filters?.difficulty || "N/A"}
-                        </span>
-                      </div>
-                      <div className="bg-white p-6 rounded-xl shadow-sm hover:shadow-lg transition-all duration-300 transform hover:-translate-y-1">
-                        <span className="text-gray-600 block mb-2">
-                          Question Count
-                        </span>
-                        <span className="font-medium text-gray-900">
-                          {testDetail.filters?.count || "N/A"}
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-                )}
-              </div>
-
-              {/* Performance Breakdown */}
-              <div className="border-b border-gray-200">
-                <button
-                  onClick={() => setIsAnalyticsOpen(!isAnalyticsOpen)}
-                  className="w-full p-6 flex justify-between items-center text-left bg-gray-50 hover:bg-gray-100 transition-colors"
-                >
-                  <h2 className="text-2xl font-semibold text-gray-900">
-                    Performance Breakdown
-                  </h2>
-                  {isAnalyticsOpen ? (
-                    <ChevronUp className="w-6 h-6 text-gray-600" />
-                  ) : (
-                    <ChevronDown className="w-6 h-6 text-gray-600" />
-                  )}
-                </button>
-                {isAnalyticsOpen && (
-                  <div className="p-6 bg-gray-50">
-                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 text-base">
-                      <div className="bg-white p-6 rounded-xl shadow-sm hover:shadow-lg transition-all duration-300 transform hover:-translate-y-1">
-                        <h3 className="text-lg font-semibold text-gray-900 mb-4">
-                          By Category
-                        </h3>
-                        {Object.entries(analytics.categoryStats || {}).map(
-                          ([category, stats]) => (
-                            <div
-                              key={category}
-                              className="flex justify-between mb-3"
-                            >
-                              <span className="text-gray-600">{category}</span>
-                              <span className="font-medium text-gray-900">
-                                {stats.correct}/{stats.total} (
-                                {Math.round(
-                                  (stats.correct / stats.total) * 100
-                                )}
-                                %)
-                              </span>
-                            </div>
-                          )
-                        )}
-                      </div>
-                      <div className="bg-white p-6 rounded-xl shadow-sm hover:shadow-lg transition-all duration-300 transform hover:-translate-y-1">
-                        <h3 className="text-lg font-semibold text-gray-900 mb-4">
-                          By Subject
-                        </h3>
-                        {Object.entries(analytics.subjectStats || {}).map(
-                          ([subject, stats]) => (
-                            <div
-                              key={subject}
-                              className="flex justify-between mb-3"
-                            >
-                              <span className="text-gray-600">{subject}</span>
-                              <span className="font-medium text-gray-900">
-                                {stats.correct}/{stats.total} (
-                                {Math.round(
-                                  (stats.correct / stats.total) * 100
-                                )}
-                                %)
-                              </span>
-                            </div>
-                          )
-                        )}
-                      </div>
-                    </div>
-                    <div className="mt-6">
-                      <h3 className="text-lg font-semibold text-gray-900 mb-4">
-                        Question Statistics
-                      </h3>
-                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 text-base">
-                        <div className="bg-white p-6 rounded-xl shadow-sm hover:shadow-lg transition-all duration-300 transform hover:-translate-y-1">
-                          <span className="text-gray-600 block mb-2">
-                            Correct
-                          </span>
-                          <span className="font-medium text-gray-900">
-                            {analytics.questionStats?.correct || 0}
-                          </span>
-                        </div>
-                        <div className="bg-white p-6 rounded-xl shadow-sm hover:shadow-lg transition-all duration-300 transform hover:-translate-y-1">
-                          <span className="text-gray-600 block mb-2">
-                            Incorrect
-                          </span>
-                          <span className="font-medium text-gray-900">
-                            {analytics.questionStats?.incorrect || 0}
-                          </span>
-                        </div>
-                        <div className="bg-white p-6 rounded-xl shadow-sm hover:shadow-lg transition-all duration-300 transform hover:-translate-y-1">
-                          <span className="text-gray-600 block mb-2">
-                            Flagged/Skipped
-                          </span>
-                          <span className="font-medium text-gray-900">
-                            {analytics.questionStats?.flagged || 0}
-                          </span>
-                        </div>
-                        <div className="bg-white p-6 rounded-xl shadow-sm hover:shadow-lg transition-all duration-300 transform hover:-translate-y-1">
-                          <span className="text-gray-600 block mb-2">
-                            Avg Time per Question
-                          </span>
-                          <span className="font-medium text-gray-900">
-                            {analytics.questionStats?.avgTimePerQuestion ===
-                            "N/A"
-                              ? "N/A"
-                              : `${analytics.questionStats.avgTimePerQuestion}s`}
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                )}
-              </div>
-            </div>
-
-            {/* Right Column: Questions & Answers */}
-            <div className="w-full lg:w-[45%]">
-              <div className="flex justify-between items-center mb-8">
-                <h2 className="text-2xl font-semibold text-gray-900">
-                  Questions & Answers
-                </h2>
-                <div className="flex items-center space-x-3">
-                  <label
-                    htmlFor="filter"
-                    className="text-base font-medium text-gray-700"
-                  >
-                    Filter:
-                  </label>
-                  <select
-                    id="filter"
-                    value={filter}
-                    onChange={(e) => handleFilterChange(e.target.value)}
-                    className="border border-gray-300 rounded-lg p-2 text-base bg-white focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-                  >
-                    <option value="all">All</option>
-                    <option value="correct">Correct</option>
-                    <option value="incorrect">Incorrect</option>
-                    <option value="flagged">Flagged/Skipped</option>
-                  </select>
-                </div>
-              </div>
-
-              {questions.length > 0 ? (
-                <>
-                  {questions.map((question, qIndex) => (
-                    <div
-                      key={question._id}
-                      className="mb-6 bg-white border border-gray-200 rounded-xl shadow-sm hover:shadow-lg transition-all duration-300"
-                    >
-                      <button
-                        onClick={() => toggleQuestion(question._id)}
-                        className="w-full p-8 flex justify-between items-center text-left hover:bg-gray-50 transition-colors"
-                      >
-                        <div>
-                          <h3 className="text-xl font-semibold text-gray-900">
-                            Q{qIndex + 1}:{" "}
-                            {question.question?.questionText ||
-                              "Question not available"}
-                          </h3>
-                          {/* Question Media */}
-                          {questionDetails[question._id]?.questionMedia
-                            ?.length > 0 && (
-                            <div className="mt-2 flex flex-wrap gap-2">
-                              {questionDetails[question._id].questionMedia.map(
-                                (media, index) => (
-                                  <ErrorBoundary key={index}>
-                                    <MediaDisplay
-                                      media={media}
-                                      label={`Question Media ${index + 1}`}
-                                    />
-                                  </ErrorBoundary>
-                                )
-                              )}
-                            </div>
-                          )}
-                        </div>
-                        {expandedQuestions[question._id] ? (
-                          <ChevronUp className="w-6 h-6 text-gray-600" />
-                        ) : (
-                          <ChevronDown className="w-6 h-6 text-gray-600" />
-                        )}
-                      </button>
-                      {expandedQuestions[question._id] && (
-                        <div className="p-8 border-t border-gray-200">
-                          <div className="space-y-4 mb-6">
-                            {question.options?.map((option, oIndex) => (
-                              <div
-                                key={oIndex}
-                                className={`p-4 rounded-lg flex items-center space-x-4 ${
-                                  question.selectedAnswer === oIndex &&
-                                  question.isCorrect
-                                    ? "bg-green-50 border border-green-200"
-                                    : question.selectedAnswer === oIndex &&
-                                      !question.isCorrect
-                                    ? "bg-red-50 border border-red-200"
-                                    : question.correctAnswer === oIndex
-                                    ? "bg-blue-50 border border-blue-200"
-                                    : "bg-gray-50 border border-gray-200"
-                                }`}
-                              >
-                                <div className="flex-shrink-0">
-                                  {question.selectedAnswer === oIndex ? (
-                                    <svg
-                                      className={`w-6 h-6 ${
-                                        question.isCorrect
-                                          ? "text-green-500"
-                                          : "text-red-500"
-                                      }`}
-                                      fill="currentColor"
-                                      viewBox="0 0 20 20"
-                                    >
-                                      {question.isCorrect ? (
-                                        <path
-                                          fillRule="evenodd"
-                                          d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
-                                          clipRule="evenodd"
-                                        />
-                                      ) : (
-                                        <path
-                                          fillRule="evenodd"
-                                          d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z"
-                                          clipRule="evenodd"
-                                        />
-                                      )}
-                                    </svg>
-                                  ) : question.correctAnswer === oIndex ? (
-                                    <svg
-                                      className="w-6 h-6 text-blue-500"
-                                      fill="currentColor"
-                                      viewBox="0 0 20 20"
-                                    >
-                                      <path
-                                        fillRule="evenodd"
-                                        d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
-                                        clipRule="evenodd"
-                                      />
-                                    </svg>
-                                  ) : (
-                                    <div className="w-6 h-6"></div>
-                                  )}
-                                </div>
-                                <div className="flex-1">
-                                  <p className="text-base text-gray-700">
-                                    {String.fromCharCode(65 + oIndex)}.{" "}
-                                    {option?.text || "Option not available"}
-                                  </p>
-                                  {/* Option Media */}
-                                  {questionDetails[question._id]?.options?.[
-                                    oIndex
-                                  ]?.media?.length > 0 && (
-                                    <div className="mt-2 flex flex-wrap gap-2">
-                                      {questionDetails[question._id].options[
-                                        oIndex
-                                      ].media.map((media, mediaIndex) => (
-                                        <ErrorBoundary key={mediaIndex}>
-                                          <MediaDisplay
-                                            media={media}
-                                            label={`Option ${String.fromCharCode(
-                                              65 + oIndex
-                                            )} Media ${mediaIndex + 1}`}
-                                          />
-                                        </ErrorBoundary>
-                                      ))}
-                                    </div>
-                                  )}
-                                </div>
-                              </div>
-                            ))}
-                          </div>
-
-                          <div className="mt-6">
-                            <h4 className="text-base font-semibold text-gray-900 mb-2">
-                              Explanation
-                            </h4>
-
-                            {(() => {
-                              const explanation =
-                                questionDetails[question._id]?.explanation ||
-                                "";
-                              if (!explanation) {
-                                return (
-                                  <p className="text-base text-gray-700">
-                                    No explanation available
-                                  </p>
-                                );
-                              }
-                              const segments = explanation
-                                .split(".")
-                                .map((s) => s.trim())
-                                .filter((s) => s.length > 0);
-
-                              if (segments.length <= 1) {
-                                return (
-                                  <p className="text-base text-gray-700">
-                                    {explanation}
-                                  </p>
-                                );
-                              } else {
-                                return (
-                                  <ul className="list-disc pl-5 space-y-2 text-gray-700 text-base">
-                                    {segments.map((segment, idx) => (
-                                      <li key={idx}>{segment}.</li>
-                                    ))}
-                                  </ul>
-                                );
-                              }
-                            })()}
-
-                            {/* Explanation Media */}
-                            {questionDetails[question._id]?.explanationMedia
-                              ?.length > 0 && (
-                              <div className="mt-2 flex flex-wrap gap-2">
-                                {questionDetails[
-                                  question._id
-                                ].explanationMedia.map((media, index) => (
-                                  <ErrorBoundary key={index}>
-                                    <MediaDisplay
-                                      media={media}
-                                      label={`Explanation Media ${index + 1}`}
-                                    />
-                                  </ErrorBoundary>
-                                ))}
-                              </div>
-                            )}
-                          </div>
-
-                          <div className="text-sm text-gray-500 mt-4">
-                            <span>Category: {question.category || "N/A"}</span>
-                            <span className="mx-2">•</span>
-                            <span>Subject: {question.subject || "N/A"}</span>
-                            <span className="mx-2">•</span>
-                            <span>Topic: {question.topic || "N/A"}</span>
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  ))}
-
-                  {pagination.pages > 1 && (
-                    <div className="flex justify-center mt-8">
-                      <nav className="inline-flex rounded-lg shadow-sm">
-                        {Array.from(
-                          { length: pagination.pages },
-                          (_, i) => i + 1
-                        ).map((page) => (
-                          <button
-                            key={page}
-                            onClick={() => handlePageChange(page)}
-                            className={`px-5 py-2 border text-base font-medium ${
-                              pagination.current === page
-                                ? "bg-indigo-600 text-white border-indigo-600"
-                                : "bg-white text-gray-700 border-gray-300 hover:bg-gray-50"
-                            } ${page === 1 ? "rounded-l-lg" : ""} ${
-                              page === pagination.pages ? "rounded-r-lg" : ""
-                            }`}
-                          >
-                            {page}
-                          </button>
-                        ))}
-                      </nav>
-                    </div>
-                  )}
-                </>
-              ) : (
-                <div className="text-center text-gray-600 py-8 text-lg font-medium">
-                  No questions found for this filter.
-                </div>
-              )}
-
-              <div className="mt-8 flex justify-end space-x-4">
-                <button
-                  onClick={() => navigate("/dashboard")}
-                  className="px-6 py-3 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors text-base font-semibold"
-                >
-                  Back to Dashboard
-                </button>
-                <button
-                  onClick={() => navigate("/dashboard/starttest")}
-                  className="px-6 py-3 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors text-base font-semibold"
-                >
-                  Start a New Test
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
       </div>
-    </div>
+    );
+  }
+
+  const correctVsIncorrectData = getCorrectVsIncorrectData();
+  const usedVsUnusedData = getUsedVsUnusedData();
+
+  // Updated custom tooltip for stacked horizontal bar chart
+  const CustomBarTooltip = ({ active, payload, label }) => {
+    if (active && payload && payload.length) {
+      return (
+        <div className="bg-white p-3 border border-gray-200 rounded-lg shadow-lg">
+          <p className="font-semibold text-gray-800 mb-2">{label}</p>
+          {payload.map((entry, index) => (
+            <p key={index} style={{ color: entry.color }} className="text-sm">
+              {entry.name}: {safeNumber(entry.value)}
+            </p>
+          ))}
+        </div>
+      );
+    }
+    return null;
+  };
+
+  // Safe calculation for pie chart percentages
+  const getPercentage = (value1, value2) => {
+    const total = safeNumber(value1) + safeNumber(value2);
+    if (total === 0) return 0;
+    return Math.round((safeNumber(value1) / total) * 100);
+  };
+
+  return (
+    <TooltipProvider>
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+        <div className="px-4 border-b">
+          <TabsList className="mt-2">
+            <TabsTrigger value="overview" className="flex items-center">
+              <Activity className="mr-2 h-4 w-4" />
+              Overview
+            </TabsTrigger>
+            <TabsTrigger value="overall-overview" className="flex items-center">
+              <BarChart className="mr-2 h-4 w-4" />
+              Overall Overview
+            </TabsTrigger>
+          </TabsList>
+        </div>
+
+        <TabsContent value="overview">
+          <PerformanceOverviewCard
+            totalQuestions={safeNumber(testDetail?.totalQuestions)}
+            correctAnswers={safeNumber(testDetail?.correctAnswers)}
+            incorrectAnswers={safeNumber(testDetail?.incorrectAnswers)}
+            missedAnswers={safeNumber(testDetail?.flaggedAnswers)}
+            totalQuestionsInSystem={testDetail?.totalQuestions}
+            timeTaken={
+              testDetail
+                ? Math.round(
+                    (new Date(testDetail.completedAt) -
+                      new Date(testDetail.startedAt)) /
+                      1000
+                  )
+                : 0
+            }
+          />
+
+          <FilterSection
+            activeFilter={activeFilter}
+            setActiveFilter={setActiveFilter}
+          />
+
+          <QuestionList
+            testPairs={questions.map((item) => ({
+              id: item._id,
+              term1: item.question.questionText,
+              term2: item.options ? item.options[item.correctAnswer]?.text : "",
+              category: item.category,
+              activeFilter: activeFilter,
+              difficulty: item.question.difficulty || "medium",
+              notes: {
+                explanation: item.explanation,
+                image:
+                  item.questionMedia && item.questionMedia[0]
+                    ? `https://synapaxon-backend.onrender.com${item.questionMedia[0].path}`
+                    : null,
+              },
+            }))}
+            pairPerformance={{
+              current: questions.map((item) => ({
+                pairId: item._id,
+                isCorrect: item.isCorrect,
+                selectedAnswer: item.selectedAnswer,
+              })),
+            }}
+            activeFilter={activeFilter}
+          />
+        </TabsContent>
+
+        <TabsContent value="overall-overview">
+          <div className="h-full overflow-y-auto bg-gradient-to-br from-slate-50 via-white to-slate-50">
+            <div className="p-6 max-w-7xl mx-auto">
+              <AnimatedDiv delay={1} className="mb-8">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+                  <div className="flex flex-col gap-4">
+                    <AnimatedDiv
+                      delay={1}
+                      className="bg-white rounded-2xl p-4 shadow-lg border border-gray-100 hover:shadow-xl transition-all duration-300"
+                    >
+                      <h3 className="text-center text-sm font-medium text-gray-700 mb-2 flex items-center justify-center">
+                        <CheckCircle className="h-4 w-4 mr-2 text-green-500" />
+                        Correct vs Incorrect
+                      </h3>
+                      <div className="h-52">
+                        <ResponsiveContainer width="100%" height="100%">
+                          <PieChart>
+                            <Pie
+                              data={correctVsIncorrectData}
+                              cx="50%"
+                              cy="50%"
+                              innerRadius={60}
+                              outerRadius={80}
+                              paddingAngle={2}
+                              dataKey="value"
+                            >
+                              {correctVsIncorrectData.map((entry, index) => (
+                                <Cell
+                                  key={`cell-${index}`}
+                                  fill={entry.color}
+                                />
+                              ))}
+                              <Label
+                                value={`${getPercentage(
+                                  correctVsIncorrectData[0]?.value,
+                                  correctVsIncorrectData[1]?.value
+                                )}%`}
+                                position="center"
+                                className="text-2xl font-bold"
+                                fill="#333"
+                              />
+                            </Pie>
+                            <Tooltip
+                              formatter={(value) => [
+                                `${safeNumber(value)} Questions`,
+                                "",
+                              ]}
+                              labelFormatter={() => ""}
+                            />
+                          </PieChart>
+                        </ResponsiveContainer>
+                        <div className="flex justify-center space-x-6 ">
+                          <div className="flex items-center">
+                            <div className="w-3 h-3 bg-green-500 rounded-full mr-2"></div>
+                            <span className="text-xs text-gray-600">
+                              Correct
+                            </span>
+                          </div>
+                          <div className="flex items-center">
+                            <div className="w-3 h-3 bg-red-500 rounded-full mr-2"></div>
+                            <span className="text-xs text-gray-600">
+                              Incorrect
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    </AnimatedDiv>
+
+                    <div className="grid grid-cols-2 gap-4">
+                      <AnimatedDiv
+                        delay={1}
+                        className="bg-gradient-to-br from-green-50 to-green-100 rounded-2xl p-3 shadow-lg border border-green-200 hover:shadow-xl transition-all duration-300 flex flex-col items-center justify-center"
+                      >
+                        <div className="text-green-500 mb-1">
+                          <CheckCircle className="h-6 w-6" />
+                        </div>
+                        <div className="text-xs text-gray-600">
+                          Correct Answers
+                        </div>
+                        <div className="text-xl font-bold mt-1 text-green-700">
+                          {safeNumber(
+                            correctVsIncorrectData[0]?.value
+                          ).toLocaleString()}
+                        </div>
+                      </AnimatedDiv>
+
+                      <AnimatedDiv
+                        delay={1}
+                        className="bg-gradient-to-br from-red-50 to-red-100 rounded-2xl p-3 shadow-lg border border-red-200 hover:shadow-xl transition-all duration-300 flex flex-col items-center justify-center"
+                      >
+                        <div className="text-red-500 mb-1">
+                          <XCircle className="h-6 w-6" />
+                        </div>
+                        <div className="text-xs text-gray-600">
+                          Incorrect Answers
+                        </div>
+                        <div className="text-xl font-bold mt-1 text-red-700">
+                          {safeNumber(
+                            correctVsIncorrectData[1]?.value
+                          ).toLocaleString()}
+                        </div>
+                      </AnimatedDiv>
+                    </div>
+                  </div>
+
+                  <div className="flex flex-col gap-4">
+                    <AnimatedDiv
+                      delay={1}
+                      className="bg-white rounded-2xl p-4 shadow-lg border border-gray-100 hover:shadow-xl transition-all duration-300"
+                    >
+                      <h3 className="text-center text-sm font-medium text-gray-700 mb-2 flex items-center justify-center">
+                        <Database className="h-4 w-4 mr-2 text-blue-500" />
+                        Used vs Unused Questions
+                      </h3>
+                      <div className="h-48">
+                        <ResponsiveContainer width="100%" height="100%">
+                          <PieChart>
+                            <Pie
+                              data={usedVsUnusedData}
+                              cx="50%"
+                              cy="50%"
+                              innerRadius={60}
+                              outerRadius={80}
+                              paddingAngle={2}
+                              dataKey="value"
+                            >
+                              {usedVsUnusedData.map((entry, index) => (
+                                <Cell
+                                  key={`cell-${index}`}
+                                  fill={entry.color}
+                                />
+                              ))}
+                              <Label
+                                value={`${getPercentage(
+                                  testDetail?.totalQuestions -
+                                    testDetail?.flaggedAnswers,
+                                  testDetail?.flaggedAnswers
+                                )}%`}
+                                position="center"
+                                className="text-2xl font-bold"
+                                fill="#333"
+                              />
+                            </Pie>
+                            <Tooltip
+                              formatter={(value) => [
+                                `${safeNumber(value)} Questions`,
+                                "",
+                              ]}
+                              labelFormatter={() => ""}
+                            />
+                          </PieChart>
+                        </ResponsiveContainer>
+                        <div className="flex justify-center space-x-6">
+                          <div className="flex items-center">
+                            <div className="w-3 h-3 bg-blue-500 rounded-full mr-2"></div>
+                            <span className="text-xs text-gray-600">Used</span>
+                          </div>
+                          <div className="flex items-center">
+                            <div className="w-3 h-3 bg-gray-400 rounded-full mr-2"></div>
+                            <span className="text-xs text-gray-600">
+                              Unused
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    </AnimatedDiv>
+
+                    <div className="grid grid-cols-3 gap-3">
+                      <AnimatedDiv
+                        delay={1}
+                        className="bg-gradient-to-br from-purple-50 to-purple-100 rounded-2xl p-3 shadow-lg border border-purple-200 hover:shadow-xl transition-all duration-300 flex flex-col items-center justify-center"
+                      >
+                        <div className="text-purple-500 mb-1">
+                          <Database className="h-6 w-6" />
+                        </div>
+                        <div className="text-xs text-gray-600">Total</div>
+                        <div className="text-lg font-bold mt-1 text-purple-700">
+                          {safeNumber(
+                            testDetail?.totalQuestions
+                          ).toLocaleString()}
+                        </div>
+                      </AnimatedDiv>
+
+                      <AnimatedDiv
+                        delay={1}
+                        className="bg-gradient-to-br from-blue-50 to-blue-100 rounded-2xl p-3 shadow-lg border border-blue-200 hover:shadow-xl transition-all duration-300 flex flex-col items-center justify-center"
+                      >
+                        <div className="text-blue-500 mb-1">
+                          <FileText className="h-6 w-6" />
+                        </div>
+                        <div className="text-xs text-gray-600">Used</div>
+                        <div className="text-lg font-bold mt-1 text-blue-700">
+                          {safeNumber(
+                            testDetail?.totalQuestions
+                          ).toLocaleString()}
+                        </div>
+                      </AnimatedDiv>
+
+                      <AnimatedDiv
+                        delay={1}
+                        className="bg-gradient-to-br from-gray-50 to-gray-100 rounded-2xl p-3 shadow-lg border border-gray-200 hover:shadow-xl transition-all duration-300 flex flex-col items-center justify-center"
+                      >
+                        <div className="text-gray-500 mb-1">
+                          <FileText className="h-6 w-6" />
+                        </div>
+                        <div className="text-xs text-gray-600">Unused</div>
+                        <div className="text-lg font-bold mt-1 text-gray-700">
+                          {safeNumber(
+                            testDetail?.flaggedAnswers
+                          ).toLocaleString()}
+                        </div>
+                      </AnimatedDiv>
+                    </div>
+                  </div>
+                </div>
+              </AnimatedDiv>
+
+              <div className="space-y-8">
+                <DataTable
+                  dataByCategory={dataByCategory}
+                  icon={Microscope}
+                  colorScheme="green"
+                />
+
+                {/* Subject Performance Stacked Horizontal Bar Chart */}
+                <AnimatedDiv delay={1} className="mt-8">
+                  <Card className="bg-white rounded-2xl shadow-lg border border-gray-100 hover:shadow-xl transition-all duration-300">
+                    <CardHeader className="pb-4">
+                      <CardTitle className="text-lg font-semibold text-gray-800 flex items-center">
+                        <TrendingUp className="h-5 w-5 mr-2 text-blue-500" />
+                        Subject Performance Overview
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="h-96">
+                        <ResponsiveContainer width="100%" height="100%">
+                          <RechartsBarChart
+                            layout="vertical"
+                            data={subjectPerformanceBarData}
+                            margin={{ top: 20, right: 30, left: 60, bottom: 5 }}
+                          >
+                            <CartesianGrid strokeDasharray="3 3" />
+                            <XAxis
+                              type="number"
+                              domain={[0, 100]}
+                              tick={{ fontSize: 12 }}
+                              unit="%"
+                            />
+                            <YAxis
+                              type="category"
+                              dataKey="subject"
+                              tick={{ fontSize: 12 }}
+                              width={120}
+                            />
+                            <Tooltip
+                              formatter={(value) => [
+                                `${value.toFixed(1)}%`,
+                                "",
+                              ]}
+                              labelFormatter={(label) => label}
+                            />
+                            <Legend />
+                            <Bar dataKey="Correct" stackId="a" fill="#10B981" />
+                            <Bar
+                              dataKey="Incorrect"
+                              stackId="a"
+                              fill="#EF4444"
+                            />
+                          </RechartsBarChart>
+                        </ResponsiveContainer>
+                      </div>
+                    </CardContent>
+                  </Card>
+                </AnimatedDiv>
+              </div>
+            </div>
+          </div>
+        </TabsContent>
+      </Tabs>
+    </TooltipProvider>
   );
 };
 
-export default TestDetailPage;
+export default OverallPerformanceView;

@@ -14,13 +14,14 @@ export default function QuestionFilterPage() {
   const [topicCounts, setTopicCounts] = useState({});
   const [difficulty, setDifficulty] = useState("all");
   const [useTimer, setUseTimer] = useState(false);
-  const [testDuration] = useState("90");
+  const [testDuration, setTestDuration] = useState("90"); // Made configurable
   const [numberOfItems, setNumberOfItems] = useState(5);
   const [isLoading, setIsLoading] = useState(false);
   const [questions, setQuestions] = useState([]);
   const [activeSubject, setActiveSubject] = useState(null);
   const [questionStatusFilter, setQuestionStatusFilter] = useState("all");
   const [totalQuestions, setTotalQuestions] = useState(0);
+  const [errorMessage, setErrorMessage] = useState(""); // Added for better error feedback
   const token = localStorage.getItem("token");
 
   // Reset subjects and topics when top-level filters change
@@ -34,39 +35,62 @@ export default function QuestionFilterPage() {
   const normalizeStudentQuestion = (sq) => ({
     ...sq.question,
     _id: sq.question._id,
-    subjects: sq.subjects.map(name => ({ name, topics: sq.topics || [] })), // Transform [String] to [{ name, topics }]
-    topics: undefined, // Remove top-level topics
+    subjects: sq.subjects.map(name => ({
+      name,
+      topics: sq.topics?.filter(t => (topicsBySubject[name] || []).includes(t)) || []
+    })),
   });
 
   // Fetch counts for categories, subjects, and topics
   const fetchCounts = async () => {
+    setErrorMessage("");
     const categoryCountMap = {};
     const subjectCountMap = {};
     const topicCountMap = {};
 
     try {
+      if (!token) {
+        throw new Error("Authentication token missing. Please log in.");
+      }
+
       // Initialize counts for all categories
       categories.forEach((cat) => {
         categoryCountMap[cat.name] = { all: 0, correct: 0, incorrect: 0, unattempted: 0, flagged: 0 };
       });
 
-      // Build API query for history (without pagination)
+      // Build API query for history
       const historyQuery = `/api/student-questions/history?category=${selectedCategory}${
         difficulty !== "all" ? `&difficulty=${difficulty}` : ""
       }`;
       const historyRes = await axios.get(historyQuery, {
         headers: { Authorization: `Bearer ${token}` },
       });
+
+      if (!historyRes.data.success) {
+        throw new Error(historyRes.data.message || "Failed to fetch question history");
+      }
+
       const historyQuestions = (historyRes.data.data || []).map(normalizeStudentQuestion);
 
-      // Build API query for all questions (without pagination)
+      // Build API query for all questions
       const questionsQuery = `/api/questions?category=${selectedCategory}&createdBy=me${
         difficulty !== "all" ? `&difficulty=${difficulty}` : ""
       }`;
       const allQuestionsRes = await axios.get(questionsQuery, {
         headers: { Authorization: `Bearer ${token}` },
       });
+
+      if (!allQuestionsRes.data.success) {
+        throw new Error(allQuestionsRes.data.message || "Failed to fetch questions");
+      }
+
       const allQuestions = allQuestionsRes.data.data || [];
+
+      // Validate subjects against predefined list
+      const validSubjects = subjectsByCategory[selectedCategory] || [];
+      const filteredQuestions = allQuestions.filter(q =>
+        q.subjects.some(s => validSubjects.includes(s.name))
+      );
 
       // Compute status counts
       const correctIds = historyQuestions
@@ -78,13 +102,13 @@ export default function QuestionFilterPage() {
       const flaggedIds = historyQuestions
         .filter((q) => q.selectedAnswer === -1)
         .map((q) => q._id.toString());
-      const allIds = allQuestions.map((q) => q._id.toString());
+      const allIds = filteredQuestions.map((q) => q._id.toString());
       const unattemptedIds = allIds.filter(
         (id) => !correctIds.includes(id) && !incorrectIds.includes(id) && !flaggedIds.includes(id)
       );
 
       categoryCountMap[selectedCategory] = {
-        all: allQuestions.length,
+        all: filteredQuestions.length,
         correct: correctIds.length,
         incorrect: incorrectIds.length,
         unattempted: unattemptedIds.length,
@@ -92,12 +116,12 @@ export default function QuestionFilterPage() {
       };
 
       // Derive subjects from questions
-      const subjects = [...new Set(allQuestions.flatMap((q) => q.subjects.map(s => s.name)))].filter((s) =>
-        (subjectsByCategory[selectedCategory] || []).includes(s)
+      const subjects = [...new Set(filteredQuestions.flatMap((q) => q.subjects.map(s => s.name)))].filter((s) =>
+        validSubjects.includes(s)
       );
 
       subjects.forEach((subject) => {
-        const subjectQuestions = allQuestions.filter((q) => q.subjects.some(s => s.name === subject));
+        const subjectQuestions = filteredQuestions.filter((q) => q.subjects.some(s => s.name === subject));
         const subjectHistory = historyQuestions.filter((q) => q.subjects.some(s => s.name === subject));
         const subjectCorrectIds = subjectHistory
           .filter((q) => q.isCorrect)
@@ -131,7 +155,7 @@ export default function QuestionFilterPage() {
         const topics = [...new Set(subjectQuestions.flatMap((q) => 
           q.subjects.find(s => s.name === subject)?.topics || []
         ))].filter((t) => (topicsBySubject[subject] || []).includes(t));
-        
+
         topics.forEach((topic) => {
           const topicQuestions = subjectQuestions.filter((q) => 
             q.subjects.some(s => s.name === subject && s.topics.includes(topic))
@@ -172,9 +196,10 @@ export default function QuestionFilterPage() {
       setCategoryCounts(categoryCountMap);
       setSubjectCounts(subjectCountMap);
       setTopicCounts(topicCountMap);
-      setTotalQuestions(allQuestions.length);
+      setTotalQuestions(filteredQuestions.length);
     } catch (err) {
       console.error("Error fetching counts:", err);
+      setErrorMessage(err.message || "Failed to load question counts. Please try again.");
       setCategoryCounts(categoryCountMap);
       setSubjectCounts({});
       setTopicCounts({});
@@ -182,7 +207,7 @@ export default function QuestionFilterPage() {
     }
   };
 
-  // Memoized question filtering
+  // Memoized question filtering with stricter subject-topic matching
   const filteredQuestions = useMemo(() => {
     let result = questions;
 
@@ -195,7 +220,7 @@ export default function QuestionFilterPage() {
           const subjectTopics = Array.from(selectedTopics.entries()).flatMap(([subject, topics]) =>
             topics.map((topic) => ({ subject, topic }))
           );
-          return subjectTopics.some(
+          return subjectTopics.every(
             ({ subject, topic }) => 
               q.subjects.some(s => s.name === subject && s.topics.includes(topic))
           );
@@ -208,7 +233,12 @@ export default function QuestionFilterPage() {
 
   // Fetch questions based on top-level filters
   const fetchQuestions = async () => {
+    setErrorMessage("");
     try {
+      if (!token) {
+        throw new Error("Authentication token missing. Please log in.");
+      }
+
       setIsLoading(true);
       let allQuestions = [];
 
@@ -220,18 +250,27 @@ export default function QuestionFilterPage() {
         const res = await axios.get(`${baseHistoryQuery}&isCorrect=true`, {
           headers: { Authorization: `Bearer ${token}` },
         });
+        if (!res.data.success) {
+          throw new Error(res.data.message || "Failed to fetch correct questions");
+        }
         allQuestions = res.data.data.map(normalizeStudentQuestion);
         setTotalQuestions(res.data.count || res.data.data.length);
       } else if (questionStatusFilter === "incorrect") {
         const res = await axios.get(`${baseHistoryQuery}&isCorrect=false&flagged=false`, {
           headers: { Authorization: `Bearer ${token}` },
         });
+        if (!res.data.success) {
+          throw new Error(res.data.message || "Failed to fetch incorrect questions");
+        }
         allQuestions = res.data.data.map(normalizeStudentQuestion);
         setTotalQuestions(res.data.count || res.data.data.length);
       } else if (questionStatusFilter === "flagged") {
         const res = await axios.get(`${baseHistoryQuery}&flagged=true`, {
           headers: { Authorization: `Bearer ${token}` },
         });
+        if (!res.data.success) {
+          throw new Error(res.data.message || "Failed to fetch flagged questions");
+        }
         allQuestions = res.data.data.map(normalizeStudentQuestion);
         setTotalQuestions(res.data.count || res.data.data.length);
       } else if (questionStatusFilter === "unattempted") {
@@ -241,29 +280,40 @@ export default function QuestionFilterPage() {
           }`,
           { headers: { Authorization: `Bearer ${token}` } }
         );
+        if (!allQuestionsRes.data.success) {
+          throw new Error(allQuestionsRes.data.message || "Failed to fetch all questions");
+        }
         const historyRes = await axios.get(baseHistoryQuery, {
           headers: { Authorization: `Bearer ${token}` },
         });
+        if (!historyRes.data.success) {
+          throw new Error(historyRes.data.message || "Failed to fetch question history");
+        }
         const allAvailableQuestions = allQuestionsRes.data.data || [];
         const historyQuestions = historyRes.data.data || [];
         const historyIds = historyQuestions.map((q) => q.question._id.toString());
         allQuestions = allAvailableQuestions.filter((q) => !historyIds.includes(q._id.toString()));
         setTotalQuestions(allQuestions.length);
       } else {
-        // questionStatusFilter === "all"
         const res = await axios.get(
           `/api/questions?category=${selectedCategory}&createdBy=me${
             difficulty !== "all" ? `&difficulty=${difficulty}` : ""
           }`,
           { headers: { Authorization: `Bearer ${token}` } }
         );
+        if (!res.data.success) {
+          throw new Error(res.data.message || "Failed to fetch questions");
+        }
         allQuestions = res.data.data || [];
         setTotalQuestions(res.data.count || allQuestions.length);
       }
 
-      setQuestions(allQuestions);
+      // Filter questions to ensure valid subjects
+      const validSubjects = subjectsByCategory[selectedCategory] || [];
+      setQuestions(allQuestions.filter(q => q.subjects.some(s => validSubjects.includes(s.name))));
     } catch (err) {
       console.error("Error fetching questions:", err);
+      setErrorMessage(err.message || "Failed to load questions. Please try again.");
       setQuestions([]);
       setTotalQuestions(0);
     } finally {
@@ -314,16 +364,15 @@ export default function QuestionFilterPage() {
 
   const startTest = async () => {
     if (selectedSubjects.size === 0 || filteredQuestions.length === 0) {
-      alert("Select at least one subject with available questions");
+      setErrorMessage("Select at least one subject with available questions");
       return;
     }
 
     setIsLoading(true);
+    setErrorMessage("");
     try {
-      // Clear any existing test data
-      const existingTestData = sessionStorage.getItem("testData");
-      if (existingTestData) {
-        sessionStorage.removeItem("testData");
+      if (!token) {
+        throw new Error("Authentication token missing. Please log in.");
       }
 
       const shuffledQuestions = [...filteredQuestions].sort(() => Math.random() - 0.5);
@@ -334,6 +383,7 @@ export default function QuestionFilterPage() {
         questionIds,
         difficulty: difficulty === "all" ? undefined : difficulty,
         count: questionIds.length,
+        duration: useTimer ? parseInt(testDuration) : 0, // Include duration in payload
       };
 
       const res = await axios.post("/api/tests", payload, {
@@ -344,12 +394,12 @@ export default function QuestionFilterPage() {
       });
 
       if (!res.data.success) {
-        throw new Error(res.data.message || "Failed to create test session.");
+        throw new Error(res.data.message || "Failed to create test session");
       }
 
       const { _id: testSessionId, questions: returnedQuestions } = res.data.data;
       if (!testSessionId || !returnedQuestions || returnedQuestions.length === 0) {
-        throw new Error("Invalid test session data: Missing testSessionId or questions.");
+        throw new Error("Invalid test session data: Missing testSessionId or questions");
       }
 
       const testData = {
@@ -372,14 +422,10 @@ export default function QuestionFilterPage() {
       };
 
       sessionStorage.setItem("testData", JSON.stringify(testData));
-
-      navigate("/dashboard/test-runner", {
-        state: testData,
-      });
+      navigate("/dashboard/test-runner", { state: testData });
     } catch (error) {
       console.error("Error starting test:", error);
-      const errorMessage = error.response?.data?.message || error.message || "Unknown error occurred";
-      alert(`Failed to start test: ${errorMessage}`);
+      setErrorMessage(error.message || "Failed to start test. Please try again.");
     } finally {
       setIsLoading(false);
     }
@@ -387,6 +433,19 @@ export default function QuestionFilterPage() {
 
   return (
     <div className="flex flex-col min-h-screen bg-gray-50">
+      {errorMessage && (
+        <div className="bg-red-100 text-red-700 p-4 m-4 rounded">
+          {errorMessage}
+          {errorMessage.includes("token") && (
+            <button
+              onClick={() => navigate("/login")}
+              className="ml-2 underline text-blue-600"
+            >
+              Log in
+            </button>
+          )}
+        </div>
+      )}
       <div className="flex items-center p-4 bg-white shadow">
         <div className="flex-1">
           <h3 className="font-medium text-gray-700 mb-2">Question Status</h3>
@@ -514,7 +573,6 @@ export default function QuestionFilterPage() {
                     const key = `${activeSubject}||${topic}`;
                     const count = topicCounts[key] || 0;
                     const isSelected = (selectedTopics.get(activeSubject) || []).includes(topic);
-
                     return (
                       <label
                         key={key}
@@ -597,8 +655,19 @@ export default function QuestionFilterPage() {
                 ></span>
               </button>
               <label htmlFor="timerCheckbox" className="ml-3 cursor-pointer">
-                Use 90 second timer
+                Use timer
               </label>
+              {useTimer && (
+                <input
+                  type="number"
+                  value={testDuration}
+                  onChange={(e) => setTestDuration(e.target.value || "90")}
+                  className="ml-3 border border-gray-300 rounded px-3 py-2 w-24"
+                  min="10"
+                  max="3600"
+                  placeholder="Duration (seconds)"
+                />
+              )}
             </div>
 
             <div className="flex-1">
