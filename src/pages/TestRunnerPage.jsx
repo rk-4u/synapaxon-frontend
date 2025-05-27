@@ -69,11 +69,11 @@ const TestRunnerPage = () => {
   };
 
   const darkHighlightColors = {
-    yellow: '#FFD700', // Bright yellow
-    green: '#00FF7F',  // Vibrant green
-    pink: '#FF1493',   // Deep pink
-    blue: '#00BFFF',   // Bright blue
-  };
+  yellow: '#b59f3b', // Muted gold (better contrast with white text)
+  green: '#228B22',  // Forest green
+  pink: '#C71585',   // Medium violet pink
+  blue: '#1E90FF',   // Dodger blue (still bright but more readable)
+};
 
   // Retrieve test data
   const testData = location.state || JSON.parse(sessionStorage.getItem('testData')) || {};
@@ -631,20 +631,54 @@ const TestRunnerPage = () => {
     );
   };
 
-  // Render highlighted text
-  const renderHighlightedText = (text, questionId) => {
-    let result = text || '';
-    Object.entries(highlights).forEach(([key, { text: highlightText, color: colorName, questionId: highlightQuestionId }]) => {
-      if (highlightQuestionId === questionId && result.includes(highlightText)) {
-        const actualColor = isDarkMode ? darkHighlightColors[colorName] : lightHighlightColors[colorName];
-        result = result.replace(
-          highlightText,
-          `<span class="highlight text-gray-700 dark:text-gray-200" data-key="${key}" style="background-color: ${actualColor}">${highlightText}</span>`
-        );
+const renderHighlightedText = (text, questionId) => {
+  if (!text) return null;
+
+  const highlightsForQuestion = Object.entries(highlights).filter(
+    ([, value]) => value.questionId === questionId && text.includes(value.text)
+  );
+
+  if (highlightsForQuestion.length === 0) return <>{text}</>;
+
+  // Track replacements as spans
+  const fragments = [];
+  let remainingText = text;
+
+  highlightsForQuestion.forEach(([key, { text: highlightText, color: colorName }]) => {
+    const actualColor = isDarkMode ? darkHighlightColors[colorName] : lightHighlightColors[colorName];
+
+    const index = remainingText.indexOf(highlightText);
+    if (index !== -1) {
+      // Push text before match
+      if (index > 0) {
+        fragments.push(remainingText.slice(0, index));
       }
-    });
-    return <span dangerouslySetInnerHTML={{ __html: result }} />;
-  };
+
+      // Push highlighted span
+      fragments.push(
+        <span
+          key={key}
+          data-key={key}
+          className="highlight text-gray-700 dark:text-gray-200"
+          style={{ backgroundColor: actualColor }}
+        >
+          {highlightText}
+        </span>
+      );
+
+      // Slice remaining text
+      remainingText = remainingText.slice(index + highlightText.length);
+    }
+  });
+
+  // Push any text left after the last match
+  if (remainingText) {
+    fragments.push(remainingText);
+  }
+
+  return <>{fragments}</>;
+};
+
 
   // Loading state
   if (loading && !testCompleted) {
