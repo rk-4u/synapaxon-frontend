@@ -307,7 +307,7 @@ const TestHistoryPage = () => {
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900 py-8">
-      <div className="container mx-auto px-6 max-w-7xl">
+      <div className="container mx-auto px-6 ">
         <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl overflow-hidden">
           {/* Header */}
           <div className="bg-gradient-to-r from-blue-700 to-indigo-600 dark:from-blue-600 dark:to-indigo-500 p-8">

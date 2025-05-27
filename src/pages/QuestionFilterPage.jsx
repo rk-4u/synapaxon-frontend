@@ -32,14 +32,22 @@ export default function QuestionFilterPage() {
   }, [questionStatusFilter, difficulty, selectedCategory]);
 
   // Normalize StudentQuestion subjects to match Question schema
-  const normalizeStudentQuestion = (sq) => ({
-    ...sq.question,
-    _id: sq.question._id,
-    subjects: sq.subjects.map(name => ({
-      name,
-      topics: sq.topics?.filter(t => (topicsBySubject[name] || []).includes(t)) || []
-    })),
-  });
+    const normalizeStudentQuestion = (sq) => {
+      if (!sq || !sq.question) {
+        console.warn("Skipping invalid student question:", sq);
+        return null;
+      }
+
+      return {
+        ...sq.question,
+        _id: sq.question._id,
+        subjects: sq.subjects.map(name => ({
+          name,
+          topics: sq.topics?.filter(t => (topicsBySubject[name] || []).includes(t)) || []
+        })),
+      };
+    };
+
 
   // Fetch counts for categories, subjects, and topics
   const fetchCounts = async () => {
@@ -70,7 +78,10 @@ export default function QuestionFilterPage() {
         throw new Error(historyRes.data.message || "Failed to fetch question history");
       }
 
-      const historyQuestions = (historyRes.data.data || []).map(normalizeStudentQuestion);
+      const historyQuestions = (historyRes.data.data || [])
+      .map(normalizeStudentQuestion)
+      .filter(Boolean);
+
 
       // Build API query for all questions
       const questionsQuery = `/api/questions?category=${selectedCategory}&createdBy=me${
