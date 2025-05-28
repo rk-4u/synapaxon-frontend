@@ -158,4 +158,52 @@ export const explainAnswerChoiceAI = async (
   }
 };
 
+
+// --- Interfaces for AI Chat ---
+interface AIChatMessage { // Matches Pydantic ChatMessage
+  type: 'user' | 'ai';
+  content: string;
+}
+
+interface AIChatRequestPayload {
+  message: string;
+  history?: AIChatMessage[]; // Keep for potential display or initial priming if desired
+  thread_id?: string | null; // Send current thread_id, or null/undefined for new chat
+}
+
+interface AIChatResponse { // Matches FastAPI response model
+  response: string;
+  thread_id: string; // Backend will always return a thread_id
+  success?: boolean; // Add this for consistent handling in the component
+  message?: string; // For errors
+}
+
+export const sendChatMessageToAI = async (
+  payload: AIChatRequestPayload
+): Promise<AIChatResponse> => {
+  try {
+    const backendResponse = await aiApiClient.post<AIChatResponse>( // Expect AIChatResponse directly
+      '/api/ai-chat',
+      payload
+    );
+
+    // The backend now directly returns the structure we need, plus success
+    return { ...backendResponse.data, success: true };
+
+  } catch (error) {
+    console.error('Error sending chat message to AI:', error);
+    const defaultErrorMsg = 'An unexpected error occurred with the AI chat service.';
+    let errorMessage = defaultErrorMsg;
+    if (axios.isAxiosError(error) && error.response && error.response.data) {
+      errorMessage = error.response.data.detail || error.response.data.message || defaultErrorMsg;
+    }
+    return {
+      success: false,
+      response: '', // No valid response on error
+      thread_id: payload.thread_id || '', // Return original thread_id or empty if none
+      message: errorMessage,
+    };
+  }
+};
+
 export default aiApiClient;

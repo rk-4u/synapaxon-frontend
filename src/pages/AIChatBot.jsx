@@ -1,12 +1,13 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Send, X, MessageCircle } from 'lucide-react';
-import axios from '../api/axiosConfig';
+import { sendChatMessageToAI } from '../api/aiapi';
 
 const AIChatBot = () => {
   const [isOpen, setIsOpen] = useState(false);
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [currentThreadId, setCurrentThreadId] = useState(null); // NEW: Store thread_id
   const messagesEndRef = useRef(null);
 
   // Toggle chat window visibility
@@ -15,48 +16,72 @@ const AIChatBot = () => {
   };
 
   // Scroll to the bottom of the chat when messages update
-  useEffect(() => {
-    if (messagesEndRef.current) {
-      messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
-    }
-  }, [messages, isLoading]);
-
-  // Add welcome message on first open
-  useEffect(() => {
+   useEffect(() => {
     if (isOpen && messages.length === 0) {
-      setMessages([{ type: 'ai', content: 'Hello! How can I assist you today?' }]);
+      setMessages([{ type: 'ai', content: 'Hello! I am Synapax, your AI Medical Tutor. How can I assist you today?' }]);
+      // Optionally, you could clear currentThreadId here if you want every "new" chat window open to be a new thread
+      // or persist it in localStorage to continue previous conversations.
+      // For simplicity, let's allow continuing if thread_id exists.
+      // If you want a fresh thread each time the empty chat opens:
+      // setCurrentThreadId(null);
     }
-  }, [isOpen]);
+  }, [isOpen]); // Removed messages.length from dependency to avoid resetting on every message
 
-  // Send message to AI and handle response
   const sendMessage = async () => {
     if (input.trim() === '' || isLoading) return;
 
     const userMessage = { type: 'user', content: input };
     setMessages((prev) => [...prev, userMessage]);
+    
+    const currentInput = input;
     setInput('');
     setIsLoading(true);
 
     try {
-      const token = localStorage.getItem('token');
-      const response = await axios.post(
-        '/api/ai-chat',
-        { message: input },
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
-      const aiMessage = { type: 'ai', content: response.data.response };
-      setMessages((prev) => [...prev, aiMessage]);
+      // History for display is in `messages`. The agent uses checkpointer.
+      // We don't strictly need to send `history` in payload if checkpointer handles it all.
+      // However, sending recent history can be useful for the LLM's immediate context or if
+      // the checkpointer mechanism has some latency or is only for longer-term persistence.
+      // The `create_react_agent` primarily relies on the checkpointer.
+      const historyForPayload = messages
+        .filter(msg => msg.type === 'user' || msg.type === 'ai')
+        .slice(0, -1) // Exclude the user message just added locally
+        .slice(-6); // Send last 3 pairs of user/AI messages for context, adjust as needed
+
+      const response = await sendChatMessageToAI({
+        message: currentInput,
+        history: historyForPayload, // Optional: for immediate context if desired by agent prompt
+        thread_id: currentThreadId, // Send current thread_id
+      });
+
+      if (response.success && response.response) {
+        const aiMessage = { type: 'ai', content: response.response };
+        setMessages((prev) => [...prev, aiMessage]);
+        if (response.thread_id && response.thread_id !== currentThreadId) {
+          setCurrentThreadId(response.thread_id); // Update if backend assigned a new one
+          // Persist thread_id for next session if desired
+          // localStorage.setItem('aiChatThreadId', response.thread_id);
+        }
+      } else {
+        const errorMessageContent = response.message || 'Sorry, I had trouble understanding that.';
+        setMessages((prev) => [...prev, { type: 'ai', content: errorMessageContent }]);
+      }
     } catch (error) {
-      console.error('Error sending message to AI:', error);
-      const errorMessage = {
-        type: 'ai',
-        content: 'Sorry, I encountered an error. Please try again later.',
-      };
-      setMessages((prev) => [...prev, errorMessage]);
+      console.error('Error in sendMessage component:', error);
+      setMessages((prev) => [...prev, { type: 'ai', content: 'Network error. Please try again.' }]);
     } finally {
       setIsLoading(false);
     }
   };
+
+  // Optional: Load thread_id from localStorage on component mount
+  useEffect(() => {
+    // const savedThreadId = localStorage.getItem('aiChatThreadId');
+    // if (savedThreadId) {
+    //   setCurrentThreadId(savedThreadId);
+    // }
+  }, []);
+
 
   return (
     <>
