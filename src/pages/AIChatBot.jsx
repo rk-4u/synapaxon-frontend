@@ -1,6 +1,9 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Send, X, MessageCircle } from 'lucide-react';
+// Assuming '../api/aiapi' exists and handles API calls
 import { sendChatMessageToAI } from '../api/aiapi';
+import ReactMarkdown from 'react-markdown'; // Import ReactMarkdown
+import remarkGfm from 'remark-gfm'; // Import remarkGfm for GitHub Flavored Markdown
 
 const AIChatBot = () => {
   const [isOpen, setIsOpen] = useState(false);
@@ -10,32 +13,37 @@ const AIChatBot = () => {
   const [currentThreadId, setCurrentThreadId] = useState(null); // NEW: Store thread_id
   const messagesEndRef = useRef(null);
 
+  // Scroll to the bottom of the chat when messages update
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [messages]); // Scroll whenever messages array updates
+
   // Toggle chat window visibility
   const toggleChat = () => {
     setIsOpen(!isOpen);
+    // Optionally, you could clear currentThreadId here if you want every "new" chat window open to be a new thread
+    // or persist it in localStorage to continue previous conversations.
+    // For simplicity, let's allow continuing if thread_id exists.
+    // If you want a fresh thread each time the empty chat opens:
+    // if (!isOpen) setCurrentThreadId(null);
   };
 
-  // Scroll to the bottom of the chat when messages update
-   useEffect(() => {
+  // Initialize chat with a welcome message when opened and messages are empty
+  useEffect(() => {
     if (isOpen && messages.length === 0) {
       setMessages([{ type: 'ai', content: 'Hello! I am Synapax, your AI Medical Tutor. How can I assist you today?' }]);
-      // Optionally, you could clear currentThreadId here if you want every "new" chat window open to be a new thread
-      // or persist it in localStorage to continue previous conversations.
-      // For simplicity, let's allow continuing if thread_id exists.
-      // If you want a fresh thread each time the empty chat opens:
-      // setCurrentThreadId(null);
     }
-  }, [isOpen]); // Removed messages.length from dependency to avoid resetting on every message
+  }, [isOpen, messages.length]); // Dependencies ensure this runs when chat opens and messages are empty
 
   const sendMessage = async () => {
     if (input.trim() === '' || isLoading) return;
 
     const userMessage = { type: 'user', content: input };
-    setMessages((prev) => [...prev, userMessage]);
-    
-    const currentInput = input;
-    setInput('');
-    setIsLoading(true);
+    setMessages((prev) => [...prev, userMessage]); // Add user message instantly
+
+    const currentInput = input; // Capture current input before clearing
+    setInput(''); // Clear input field
+    setIsLoading(true); // Show loading indicator
 
     try {
       // History for display is in `messages`. The agent uses checkpointer.
@@ -56,10 +64,10 @@ const AIChatBot = () => {
 
       if (response.success && response.response) {
         const aiMessage = { type: 'ai', content: response.response };
-        setMessages((prev) => [...prev, aiMessage]);
+        setMessages((prev) => [...prev, aiMessage]); // Add AI response
         if (response.thread_id && response.thread_id !== currentThreadId) {
           setCurrentThreadId(response.thread_id); // Update if backend assigned a new one
-          // Persist thread_id for next session if desired
+          // Optional: Persist thread_id for next session if desired
           // localStorage.setItem('aiChatThreadId', response.thread_id);
         }
       } else {
@@ -70,23 +78,30 @@ const AIChatBot = () => {
       console.error('Error in sendMessage component:', error);
       setMessages((prev) => [...prev, { type: 'ai', content: 'Network error. Please try again.' }]);
     } finally {
-      setIsLoading(false);
+      setIsLoading(false); // Hide loading indicator
     }
   };
 
-  // Optional: Load thread_id from localStorage on component mount
-  useEffect(() => {
-    // const savedThreadId = localStorage.getItem('aiChatThreadId');
-    // if (savedThreadId) {
-    //   setCurrentThreadId(savedThreadId);
-    // }
-  }, []);
-
+  // Custom component for links to apply Tailwind CSS classes
+  const components = {
+    a: ({ node, ...props }) => (
+      <a
+        {...props}
+        className="text-blue-500 hover:underline dark:text-blue-300" // Added dark mode support
+        target="_blank" // Open links in a new tab
+        rel="noopener noreferrer" // Security best practice for target="_blank"
+      />
+    ),
+    // You can add more custom components for other markdown elements if needed
+    // For example, to style headings:
+    // h1: ({node, ...props}) => <h1 {...props} className="text-xl font-bold my-2" />,
+    // strong: ({node, ...props}) => <strong {...props} className="font-semibold" />,
+  };
 
   return (
     <>
       <button
-        onClick={toggleChat}
+        onClick={toggleChat} // Correctly calling toggleChat here
         className="fixed bottom-4 right-4 p-3 bg-blue-600 text-white rounded-full shadow-lg hover:bg-blue-700 z-50"
       >
         <MessageCircle size={24} />
@@ -96,7 +111,7 @@ const AIChatBot = () => {
           <div className="flex justify-between items-center p-4 border-b dark:border-gray-700">
             <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">AI Chatbot</h3>
             <button
-              onClick={toggleChat}
+              onClick={toggleChat} // Correctly calling toggleChat here
               className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
             >
               <X size={20} />
@@ -114,8 +129,13 @@ const AIChatBot = () => {
                       ? 'bg-blue-500 text-white'
                       : 'bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200'
                   }`}
+                  // Add max-w-xs to prevent bubbles from getting too wide
+                  style={{ maxWidth: '80%' }}
                 >
-                  {msg.content}
+                  {/* Use ReactMarkdown to render the content with custom components */}
+                  <ReactMarkdown remarkPlugins={[remarkGfm]} components={components}>
+                    {msg.content}
+                  </ReactMarkdown>
                 </span>
               </div>
             ))}
@@ -126,7 +146,7 @@ const AIChatBot = () => {
                 </span>
               </div>
             )}
-            <div ref={messagesEndRef} />
+            <div ref={messagesEndRef} /> {/* Reference for auto-scrolling */}
           </div>
           <div className="p-4 border-t dark:border-gray-700">
             <div className="flex items-center">
