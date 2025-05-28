@@ -1,11 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
-import axios from '../api/axiosConfig';
 import { X } from 'lucide-react';
 
-const BACKEND_BASE_URL = axios.defaults.baseURL;
-
 export default function MediaDisplay({ media, label }) {
-  const isWebUrl = media.mimetype === 'text/url' || media.url;
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [position, setPosition] = useState({ x: 0, y: 0 });
   const [size, setSize] = useState({ width: 800, height: 600 });
@@ -17,32 +13,23 @@ export default function MediaDisplay({ media, label }) {
   const modalRef = useRef(null);
   const contentRef = useRef(null);
 
-  if (!media || (!media.path && !media.url)) return null;
+  if (!media || !media.path) return null;
 
   function resolveMediaUrl(media) {
-  const isWebUrl = media.mimetype === 'text/url' || !!media.url;
+    const rawUrl = media.path;
+    if (!rawUrl) return null;
 
-  const rawUrl = media.url || media.path;
-  if (!rawUrl) return null;
+    // YouTube handling
+    const ytMatch = rawUrl.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/)([^&]+)/);
+    if (ytMatch) {
+      return `https://www.youtube.com/embed/${ytMatch[1]}`;
+    }
 
-  // YouTube handling
-  const ytMatch = rawUrl.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/)([^&]+)/);
-  if (ytMatch) {
-    return `https://www.youtube.com/embed/${ytMatch[1]}`;
-  }
-
-  // If it's an external web URL (not hosted by backend), use as is
-  if (isWebUrl) {
+    // Return the path as-is (it's already a full URL in your case)
     return rawUrl;
   }
 
-  // Else assume it's a media path on your backend
-  return `${BACKEND_BASE_URL}${media.path}`;
-}
-
-
-const url = resolveMediaUrl(media);
-
+  const url = resolveMediaUrl(media);
 
   const handleOpenModal = () => {
     setIsModalOpen(true);
@@ -117,36 +104,44 @@ const url = resolveMediaUrl(media);
   const renderMedia = () => {
     try {
       if (media.mimetype?.startsWith('image/')) {
-        return <img src={url} alt={media.originalname || 'Image'} style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }} onError={() => setError('Failed to load image')} />;
-      } else if (media.mimetype?.startsWith('video/')) {
-        return <video controls src={url} style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }} onError={() => setError('Failed to load video')} />;
-      } else if (media.mimetype === 'text/url' || media.url) {
         return (
-          <div className="flex flex-col w-full h-full">
-            <iframe
-              src={url}
-              title={media.originalname || 'Web Content'}
-              style={{ width: '100%', flex: '1 1 auto', border: 'none' }}
-              sandbox="allow-scripts allow-same-origin"
-              onError={() => setError('This website cannot be embedded. Click the link below to open it.')}
-            />
-            <a
-              href={url}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-blue-600 hover:underline text-sm p-2 mt-2"
-              aria-label={`Visit external URL: ${url}`}
-            >
-              {url}
-            </a>
-          </div>
+          <img 
+            src={url} 
+            alt={media.originalname || 'Image'} 
+            style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }} 
+            onError={() => setError('Failed to load image')} 
+          />
+        );
+      } else if (media.mimetype?.startsWith('video/')) {
+        return (
+          <video 
+            controls 
+            src={url} 
+            style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }} 
+            onError={() => setError('Failed to load video')} 
+          />
         );
       } else if (media.mimetype?.startsWith('application/pdf')) {
-        return <embed src={url} type="application/pdf" style={{ width: '100%', height: '100%' }} onError={() => setError('Failed to load PDF')} />;
+        return (
+          <embed 
+            src={url} 
+            type="application/pdf" 
+            style={{ width: '100%', height: '100%' }} 
+            onError={() => setError('Failed to load PDF')} 
+          />
+        );
       } else if (media.mimetype?.startsWith('application/msword') || media.mimetype?.startsWith('application/vnd.openxmlformats-officedocument')) {
-        return <a href={url} download className="text-blue-600 hover:underline">{media.originalname || 'Download Document'}</a>;
+        return (
+          <a href={url} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">
+            {media.originalname || 'Download Document'}
+          </a>
+        );
       } else {
-        return <a href={url} download className="text-blue-600 hover:underline">{media.originalname || 'Download Media'}</a>;
+        return (
+          <a href={url} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">
+            {media.originalname || 'Download Media'}
+          </a>
+        );
       }
     } catch (err) {
       setError('Error rendering media');
@@ -180,15 +175,24 @@ const url = resolveMediaUrl(media);
             onMouseDown={handleMouseDown}
           >
             <div className="w-full p-2 bg-gray-200 flex justify-between items-center">
-              <span>{media.originalname || media.url || 'Media'}</span>
+              <span>{media.originalname || 'Media'}</span>
               <button onClick={handleCloseModal} className="text-gray-500 hover:text-gray-700" aria-label="Close media viewer">
                 <X size={20} />
               </button>
             </div>
-            <div ref={contentRef} className="p-4 flex justify-center items-center" style={{ flex: 1, width: '100%' }} onMouseDown={(e) => e.stopPropagation()}>
+            <div 
+              ref={contentRef} 
+              className="p-4 flex justify-center items-center" 
+              style={{ flex: 1, width: '100%' }} 
+              onMouseDown={(e) => e.stopPropagation()}
+            >
               {error ? <p className="text-red-500">{error}</p> : renderMedia()}
             </div>
-            <div className="absolute bottom-0 right-0 w-4 h-4 bg-gray-400 cursor-se-resize resize-handle" onMouseDown={handleResizeMouseDown} aria-label="Resize media viewer" />
+            <div 
+              className="absolute bottom-0 right-0 w-4 h-4 bg-gray-400 cursor-se-resize resize-handle" 
+              onMouseDown={handleResizeMouseDown} 
+              aria-label="Resize media viewer" 
+            />
           </div>
         </div>
       )}

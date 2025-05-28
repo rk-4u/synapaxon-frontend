@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { ChevronDown, ChevronUp, Image as ImageIcon, Edit, Trash2, ArrowLeft, X, PlusCircle } from "lucide-react";
+import { ChevronDown, ChevronUp, Image as ImageIcon, Edit, Trash2, ArrowLeft, X } from "lucide-react";
 import axios from '../api/axiosConfig';
-import MediaDisplay from "./MediaDisplay";
+import MediaDisplay from './MediaDisplay';
 
 const MyCreatedQuestionsPage = () => {
   const [questions, setQuestions] = useState([]);
@@ -17,7 +17,6 @@ const MyCreatedQuestionsPage = () => {
   const navigate = useNavigate();
   const token = localStorage.getItem("token");
 
-  // Fetch questions
   useEffect(() => {
     const fetchCreatedQuestions = async () => {
       try {
@@ -25,15 +24,12 @@ const MyCreatedQuestionsPage = () => {
           throw new Error("Authentication token not found");
         }
 
-        const response = await axios.get(
-          `/api/questions?createdBy=me`,
-          {
-            headers: {
-              Authorization: `Bearer ${token}`,
-              "Content-Type": "application/json",
-            },
-          }
-        );
+        const response = await axios.get(`/api/questions?createdBy=me`, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
+        });
 
         if (!response.data.success) {
           throw new Error(response.data.message || "Failed to fetch questions");
@@ -59,7 +55,6 @@ const MyCreatedQuestionsPage = () => {
     }));
   };
 
-  // Open edit modal with pre-filled data
   const handleEdit = (question) => {
     setEditQuestionData({
       _id: question._id,
@@ -79,13 +74,11 @@ const MyCreatedQuestionsPage = () => {
     setIsEditModalOpen(true);
   };
 
-  // Handle delete confirmation
   const handleDelete = (questionId) => {
     setQuestionToDelete(questionId);
     setIsDeleteModalOpen(true);
   };
 
-  // Confirm and perform deletion
   const confirmDelete = async () => {
     try {
       const response = await axios.delete(`/api/questions/${questionToDelete}`, {
@@ -110,7 +103,6 @@ const MyCreatedQuestionsPage = () => {
     }
   };
 
-  // Handle edit form submission
   const handleEditSubmit = async (e) => {
     e.preventDefault();
     try {
@@ -169,37 +161,23 @@ const MyCreatedQuestionsPage = () => {
     }).format(date);
   };
 
-  // Loading state
   if (loading) {
     return (
       <div className="flex justify-center items-center min-h-screen bg-gray-50">
         <div className="text-center">
           <div className="animate-spin rounded-full h-16 w-16 border-t-4 border-indigo-600 mb-4 mx-auto"></div>
-          <div className="text-gray-600 text-lg font-medium">
-            Loading your created questions...
-          </div>
+          <div className="text-gray-600 text-lg font-medium">Loading your created questions...</div>
         </div>
       </div>
     );
   }
 
-  // Error state
   if (error) {
     return (
       <div className="max-w-full mx-auto mt-12 p-8 bg-red-50 border border-red-300 rounded-2xl shadow-lg">
         <div className="flex items-center">
-          <svg
-            className="w-8 h-8 text-red-600 mr-3"
-            fill="none"
-            viewBox="0 0 24 24"
-            stroke="currentColor"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-            />
+          <svg className="w-8 h-8 text-red-600 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
           </svg>
           <span className="text-red-800 text-lg font-semibold">{error}</span>
         </div>
@@ -260,26 +238,8 @@ const MyCreatedQuestionsPage = () => {
                   className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
                   required
                 />
-                {editQuestionData.questionMedia.length > 0 && (
-                  <div className="mt-2 flex flex-wrap gap-2">
-                    {editQuestionData.questionMedia.map((media, index) => (
-                      <div key={index} className="flex items-center p-2 bg-indigo-50 border border-indigo-200 rounded-md text-sm">
-                        <span className="truncate text-gray-800">{media.originalname}</span>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            const updatedMedia = editQuestionData.questionMedia.filter((_, i) => i !== index);
-                            setEditQuestionData({ ...editQuestionData, questionMedia: updatedMedia });
-                          }}
-                          className="ml-2 p-1 text-gray-500 hover:text-red-500"
-                        >
-                          <X size={16} />
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                )}
               </div>
+              
               <div className="mb-4">
                 <label className="block text-gray-700 font-medium mb-2">Options* (Select the correct answer)</label>
                 {editQuestionData.options.map((option, index) => (
@@ -307,65 +267,11 @@ const MyCreatedQuestionsPage = () => {
                         className="flex-grow px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
                         required
                       />
-                      {editQuestionData.options.length > 2 && (
-                        <button
-                          type="button"
-                          onClick={() => {
-                            const updatedOptions = editQuestionData.options.filter((_, i) => i !== index);
-                            const updatedOptionMedia = editQuestionData.optionMedia.filter((_, i) => i !== index);
-                            let newCorrectAnswer = editQuestionData.correctAnswer;
-                            if (editQuestionData.correctAnswer === index) {
-                              newCorrectAnswer = null;
-                            } else if (editQuestionData.correctAnswer > index) {
-                              newCorrectAnswer -= 1;
-                            }
-                            setEditQuestionData({
-                              ...editQuestionData,
-                              options: updatedOptions,
-                              optionMedia: updatedOptionMedia,
-                              correctAnswer: newCorrectAnswer,
-                            });
-                          }}
-                          className="ml-2 p-1 text-gray-600 hover:text-red-600"
-                        >
-                          <Trash2 size={18} />
-                        </button>
-                      )}
                     </div>
-                    {editQuestionData.optionMedia[index]?.length > 0 && (
-                      <div className="mt-2 flex flex-wrap gap-2">
-                        {editQuestionData.optionMedia[index].map((media, mediaIndex) => (
-                          <div key={mediaIndex} className="flex items-center p-2 bg-indigo-50 border border-indigo-200 rounded-md text-sm">
-                            <span className="truncate text-gray-800">{media.originalname}</span>
-                            <button
-                              type="button"
-                              onClick={() => {
-                                const updatedOptionMedia = [...editQuestionData.optionMedia];
-                                updatedOptionMedia[index] = updatedOptionMedia[index].filter((_, i) => i !== mediaIndex);
-                                setEditQuestionData({ ...editQuestionData, optionMedia: updatedOptionMedia });
-                              }}
-                              className="ml-2 p-1 text-gray-600 hover:text-red-500"
-                            >
-                              <X size={16} />
-                            </button>
-                          </div>
-                        ))}
-                      </div>
-                    )}
                   </div>
                 ))}
-                <button
-                  type="button"
-                  onClick={() => setEditQuestionData({
-                    ...editQuestionData,
-                    options: [...editQuestionData.options, ''],
-                    optionMedia: [...editQuestionData.optionMedia, []],
-                  })}
-                  className="mt-2 flex items-center text-indigo-600 hover:text-indigo-800"
-                >
-                  <PlusCircle size={16} className="mr-2" /> Add Option
-                </button>
               </div>
+
               <div className="mb-4">
                 <label className="block text-gray-700 font-medium mb-2" htmlFor="editExplanation">
                   Explanation*
@@ -378,90 +284,8 @@ const MyCreatedQuestionsPage = () => {
                   className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
                   required
                 />
-                {editQuestionData.explanationMedia.length > 0 && (
-                  <div className="mt-2 flex flex-wrap gap-2">
-                    {editQuestionData.explanationMedia.map((media, index) => (
-                      <div key={index} className="flex items-center p-2 bg-indigo-50 border border-indigo-200 rounded-md text-sm">
-                        <span className="truncate text-gray-800">{media.originalname}</span>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            const updatedMedia = editQuestionData.explanationMedia.filter((_, i) => i !== index);
-                            setEditQuestionData({ ...editQuestionData, explanationMedia: updatedMedia });
-                          }}
-                          className="ml-2 p-1 text-gray-600 hover:text-red-500"
-                        >
-                          <X size={16} />
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                )}
               </div>
-              <div className="mb-4">
-                <label className="block text-gray-700 font-medium mb-2">Difficulty*</label>
-                <div className="flex space-x-4">
-                  {['easy', 'medium', 'hard'].map((level) => (
-                    <label key={level} className="flex items-center">
-                      <input
-                        type="radio"
-                        name="editDifficulty"
-                        value={level}
-                        checked={editQuestionData.difficulty === level}
-                        onChange={(e) => setEditQuestionData({ ...editQuestionData, difficulty: e.target.value })}
-                        className="mr-2"
-                      />
-                      <span className="capitalize">{level}</span>
-                    </label>
-                  ))}
-                </div>
-              </div>
-              <div className="mb-4">
-                <label className="block text-gray-700 font-medium mb-2">Category*</label>
-                <select
-                  value={editQuestionData.category}
-                  onChange={(e) => setEditQuestionData({ ...editQuestionData, category: e.target.value, subjects: [] })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                >
-                  {['Basic Sciences', 'Organ Systems', 'Clinical Specialties'].map(cat => (
-                    <option key={cat} value={cat}>{cat}</option>
-                  ))}
-                </select>
-              </div>
-              <div className="mb-4">
-                <label className="block text-gray-700 font-medium mb-2">Subjects*</label>
-                <div className="flex flex-wrap gap-2">
-                  {['Anatomy', 'Physiology', 'Biochemistry', 'Pathology'].map(subject => (
-                    <button
-                      type="button"
-                      key={subject}
-                      onClick={() => {
-                        const updatedSubjects = editQuestionData.subjects.some(s => s.name === subject)
-                          ? editQuestionData.subjects.filter(s => s.name !== subject)
-                          : [...editQuestionData.subjects, { name: subject, topics: [] }];
-                        setEditQuestionData({ ...editQuestionData, subjects: updatedSubjects });
-                      }}
-                      className={`px-3 py-1 rounded ${
-                        editQuestionData.subjects.some(s => s.name === subject)
-                          ? 'bg-indigo-500 text-white'
-                          : 'bg-indigo-100 text-indigo-800'
-                      }`}
-                    >
-                      {subject}
-                    </button>
-                  ))}
-                </div>
-              </div>
-              <div className="mb-4">
-                <label className="block text-gray-700 font-medium mb-2">Source URL (Optional)</label>
-                <input
-                  type="url"
-                  value={editQuestionData.sourceUrl}
-                  onChange={(e) => setEditQuestionData({ ...editQuestionData, sourceUrl: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                  placeholder="Enter source URL"
-                />
-              </div>
+
               <div className="flex justify-end space-x-4">
                 <button
                   type="button"
@@ -510,9 +334,7 @@ const MyCreatedQuestionsPage = () => {
                   <div className="w-32 h-32 bg-gradient-to-br from-indigo-100 to-purple-100 rounded-full flex items-center justify-center mx-auto mb-8">
                     <ImageIcon className="w-16 h-16 text-indigo-600" />
                   </div>
-                  <h3 className="text-2xl font-bold text-gray-900 mb-4">
-                    No Questions Created
-                  </h3>
+                  <h3 className="text-2xl font-bold text-gray-900 mb-4">No Questions Created</h3>
                   <p className="text-gray-600 text-lg mb-8 leading-relaxed">
                     Start contributing by creating your first question for the platform.
                   </p>
@@ -543,7 +365,7 @@ const MyCreatedQuestionsPage = () => {
                           <div className="mt-2 flex flex-wrap gap-2">
                             {question.questionMedia.map((media, index) => (
                               <MediaDisplay
-                                key={index}
+                                key={media._id || index}
                                 media={media}
                                 label={`Question Media ${index + 1}`}
                               />
@@ -557,12 +379,13 @@ const MyCreatedQuestionsPage = () => {
                         <ChevronDown className="w-6 h-6 text-gray-600" />
                       )}
                     </button>
+                    
                     {expandedQuestions[question._id] && (
                       <div className="p-8 border-t border-gray-200">
                         <div className="space-y-4 mb-6">
                           {question.options?.map((option, oIndex) => (
                             <div
-                              key={oIndex}
+                              key={option._id || oIndex}
                               className={`p-4 rounded-lg flex items-center space-x-4 ${
                                 question.correctAnswer === oIndex
                                   ? "bg-blue-50 border border-blue-200"
@@ -571,16 +394,8 @@ const MyCreatedQuestionsPage = () => {
                             >
                               <div className="flex-shrink-0">
                                 {question.correctAnswer === oIndex ? (
-                                  <svg
-                                    className="w-6 h-6 text-blue-500"
-                                    fill="currentColor"
-                                    viewBox="0 0 20 20"
-                                  >
-                                    <path
-                                      fillRule="evenodd"
-                                      d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
-                                      clipRule="evenodd"
-                                    />
+                                  <svg className="w-6 h-6 text-blue-500" fill="currentColor" viewBox="0 0 20 20">
+                                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
                                   </svg>
                                 ) : (
                                   <div className="w-6 h-6"></div>
@@ -594,7 +409,7 @@ const MyCreatedQuestionsPage = () => {
                                   <div className="mt-2 flex flex-wrap gap-2">
                                     {option.media.map((media, mediaIndex) => (
                                       <MediaDisplay
-                                        key={mediaIndex}
+                                        key={media._id || mediaIndex}
                                         media={media}
                                         label={`Option ${String.fromCharCode(65 + oIndex)} Media ${mediaIndex + 1}`}
                                       />
@@ -605,43 +420,15 @@ const MyCreatedQuestionsPage = () => {
                             </div>
                           ))}
                         </div>
+                        
                         <div className="mt-6">
-                          <h4 className="text-base font-semibold text-gray-900 mb-2">
-                            Explanation
-                          </h4>
-                          {(() => {
-                            const explanation = question.explanation || "";
-                            if (!explanation) {
-                              return (
-                                <p className="text-base text-gray-700">
-                                  No explanation available
-                                </p>
-                              );
-                            }
-                            const segments = explanation
-                              .split(".")
-                              .map((s) => s.trim())
-                              .filter((s) => s.length > 0);
-                            if (segments.length <= 1) {
-                              return (
-                                <p className="text-base text-gray-700">
-                                  {explanation}
-                                </p>
-                              );
-                            }
-                            return (
-                              <ul className="list-disc pl-5 space-y-2 text-gray-700 text-base">
-                                {segments.map((segment, idx) => (
-                                  <li key={idx}>{segment}.</li>
-                                ))}
-                              </ul>
-                            );
-                          })()}
+                          <h4 className="text-base font-semibold text-gray-900 mb-2">Explanation</h4>
+                          <p className="text-base text-gray-700">{question.explanation || "No explanation available"}</p>
                           {question.explanationMedia?.length > 0 && (
                             <div className="mt-2 flex flex-wrap gap-2">
                               {question.explanationMedia.map((media, index) => (
                                 <MediaDisplay
-                                  key={index}
+                                  key={media._id || index}
                                   media={media}
                                   label={`Explanation Media ${index + 1}`}
                                 />
@@ -649,17 +436,17 @@ const MyCreatedQuestionsPage = () => {
                             </div>
                           )}
                         </div>
+                        
                         <div className="text-sm text-gray-500 mt-4">
                           <span>Category: {question.category || "N/A"}</span>
                           <span className="mx-2">•</span>
                           <span>Subject: {question.subjects?.map(s => s.name).join(", ") || "N/A"}</span>
                           <span className="mx-2">•</span>
-                          <span>Topic: {question.subjects?.flatMap(s => s.topics || []).join(", ") || "N/A"}</span>
-                          <span className="mx-2">•</span>
                           <span>Difficulty: {question.difficulty || "N/A"}</span>
                           <span className="mx-2">•</span>
                           <span>Created: {formatDate(question.createdAt)}</span>
                         </div>
+                        
                         <div className="mt-6 flex justify-end space-x-4">
                           <button
                             onClick={() => handleEdit(question)}

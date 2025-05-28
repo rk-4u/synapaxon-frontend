@@ -2,9 +2,9 @@ import React, { useState, useRef, useEffect } from 'react';
 import { Send, Upload, File, Image, Bot, User, CheckCircle, Loader, Download, Plus, X, Paperclip, Link } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
-import axios from '../api/axiosConfig'; // Assuming this path is correct
-import { subjectsByCategory, topicsBySubject } from '../data/questionData'; // Assuming this path is correct
-import { generateQuestionsFromDocumentAI, generateQuestionsFromTextAI, explainAnswerChoiceAI } from '../api/aiapi'; // Assuming this path is correct
+import axios from '../api/axiosConfig';
+import { subjectsByCategory, topicsBySubject } from '../data/questionData';
+import { generateQuestionsFromDocumentAI, generateQuestionsFromTextAI, explainAnswerChoiceAI } from '../api/aiapi';
 
 const AIQuestionAssistant = () => {
   // State Variables
@@ -16,8 +16,8 @@ const AIQuestionAssistant = () => {
     }
   ]);
   const [inputText, setInputText] = useState('');
-  const [uploadedFiles, setUploadedFiles] = useState([]); // Files staged for main chat/AI processing
-  const [isGenerating, setIsGenerating] = useState(false); // For AI document processing
+  const [uploadedFiles, setUploadedFiles] = useState([]);
+  const [isGenerating, setIsGenerating] = useState(false);
   const [selectedQuestion, setSelectedQuestion] = useState(null);
   const [formData, setFormData] = useState({
     questionText: '',
@@ -34,23 +34,22 @@ const AIQuestionAssistant = () => {
     sourceUrl: ''
   });
   const [showQuestionForm, setShowQuestionForm] = useState(false);
-  const [isUploading, setIsUploading] = useState(false); // For media uploads within the form/modal & form submission
-  const [uploadingFor, setUploadingFor] = useState(null); // Tracks which part of form media is being added to
-  const [currentTag, setCurrentTag] = useState('');
+  const [isUploading, setIsUploading] = useState(false);
+  const [uploadingFor, setUploadingFor] = useState(null);
   const [successMessage, setSuccessMessage] = useState('');
   const [errorMessage, setErrorMessage] = useState('');
-  const [mediaType, setMediaType] = useState('file'); // For modal: 'file' or 'url'
-  const [urlInput, setUrlInput] = useState(''); // For modal URL input
-  const [modalTempFiles, setModalTempFiles] = useState([]); // Files for the media modal's input
-  const [uploadSuccess, setUploadSuccess] = useState(false); // For modal media upload success
-  const [uploadError, setUploadError] = useState(''); // For modal media upload error
+  const [mediaType, setMediaType] = useState('file');
+  const [urlInput, setUrlInput] = useState('');
+  const [modalTempFiles, setModalTempFiles] = useState([]);
+  const [uploadSuccess, setUploadSuccess] = useState(false);
+  const [uploadError, setUploadError] = useState('');
 
   // Refs
-  const fileInputRef = useRef(null); // For main chat file input
+  const fileInputRef = useRef(null);
   const messagesEndRef = useRef(null);
 
-  const [currentAIMode, setCurrentAIMode] = useState('generate'); // 'generate' or 'explain'
-  const [activeQuestionForExplanation, setActiveQuestionForExplanation] = useState(null); // Store the question object being discussed
+  const [currentAIMode, setCurrentAIMode] = useState('generate');
+  const [activeQuestionForExplanation, setActiveQuestionForExplanation] = useState(null);
 
   // Effects
   useEffect(() => {
@@ -85,7 +84,7 @@ const AIQuestionAssistant = () => {
     });
     
     if (fileInputRef.current) {
-      fileInputRef.current.value = ""; // Clear file input
+      fileInputRef.current.value = "";
     }
   };
 
@@ -154,7 +153,6 @@ const AIQuestionAssistant = () => {
     }
   };
 
-  // Helper to find a question in messages by its ID
   const findQuestionByIdInMessages = (questionId) => {
     for (const message of messages) {
       if (message.questions) {
@@ -165,30 +163,24 @@ const AIQuestionAssistant = () => {
     return null;
   };
 
-  // When a user clicks on a question in the chat (not the customize button, but the question itself)
-  // This is a new handler. You'll need to make the question text clickable in your render.
   const handleChatQuestionClick = (questionId) => {
     const question = findQuestionByIdInMessages(questionId);
     if (question) {
       setActiveQuestionForExplanation(question);
-      // setCurrentAIMode('explain'); // User should already be in 'explain' mode or switch via toggle
       setMessages(prev => [...prev, {
         id: Date.now(),
         type: 'bot',
         content: `Now discussing: "${question.questionText.substring(0, 50)}...". What would you like to know? (e.g., "why is option B wrong?", "explain more about the correct answer")`
       }]);
-      // Optionally, scroll to input or focus it
-      // inputRef.current?.focus();
     } else {
-        setMessages(prev => [...prev, {
-            id: Date.now(),
-            type: 'bot',
-            content: "Sorry, I couldn't find that specific question in our current chat history to discuss."
-        }]);
+      setMessages(prev => [...prev, {
+        id: Date.now(),
+        type: 'bot',
+        content: "Sorry, I couldn't find that specific question in our current chat history to discuss."
+      }]);
     }
   };
 
-  // MODIFIED handleSendMessage
   const handleSendMessage = async () => {
     if (isGenerating) {
       setMessages(prev => [...prev, {
@@ -201,13 +193,11 @@ const AIQuestionAssistant = () => {
 
     const currentInputText = inputText.trim();
 
-    if (!currentInputText) { // No text typed
+    if (!currentInputText) {
       if (currentAIMode === 'generate' && uploadedFiles.length > 0) {
-        // Files are uploaded, but no specific instructions typed. Proceed with document generation.
         setMessages(prev => [...prev, {
           id: Date.now(), type: 'user', content: "(Sending uploaded documents for processing without additional instructions)"
         }]);
-        // `currentInputText` is empty, so `undefined` will be passed as instructions
       } else {
         setMessages(prev => [...prev, {
           id: Date.now(),
@@ -217,31 +207,26 @@ const AIQuestionAssistant = () => {
         return;
       }
     } else {
-      // Text is typed, add it as a user message
       const userMessage = { id: Date.now(), type: 'user', content: currentInputText };
       setMessages(prev => [...prev, userMessage]);
     }
     
-    setInputText(''); // Clear input field after capturing text
+    setInputText('');
 
-    setIsGenerating(true); // Set loading state for AI interaction
+    setIsGenerating(true);
 
-    // --- GENERATE MODE ---
     if (currentAIMode === 'generate') {
       if (uploadedFiles.length > 0) {
-        // Scenario 1A: Generate from uploaded documents
-        // `currentInputText` (captured before clearing) contains instructions for the documents
         await generateQuestionsFromFiles([...uploadedFiles], currentInputText || undefined);
-        setUploadedFiles([]); // Clear staged files after sending for document processing
+        setUploadedFiles([]);
       } else if (currentInputText) {
-        // Scenario 1B: Generate from pasted text (no files uploaded, but text was in input)
         setMessages(prev => [...prev, {
           id: Date.now() + Math.random(),
           type: 'bot',
           content: `Analyzing your pasted text for concepts and generating questions...`
         }]);
         try {
-          const response = await generateQuestionsFromTextAI(currentInputText /*, optional_instructions */);
+          const response = await generateQuestionsFromTextAI(currentInputText);
           if (response.success && response.data && response.data.length > 0) {
             const aiGeneratedQuestions = response.data.map(q => ({ ...q }));
             const botMessage = {
@@ -266,26 +251,22 @@ const AIQuestionAssistant = () => {
           setMessages(prev => [...prev, botMessage]);
         }
       } else {
-        // This case should be caught by the initial `!currentInputText && uploadedFiles.length === 0`
-        // but as a fallback:
         setMessages(prev => [...prev, {
-            id: Date.now(), type: 'bot',
-            content: "In 'Generate Mode', please either upload documents or paste text/concepts to generate questions."
+          id: Date.now(), type: 'bot',
+          content: "In 'Generate Mode', please either upload documents or paste text/concepts to generate questions."
         }]);
       }
-    }
-    // --- EXPLAIN MODE ---
-    else if (currentAIMode === 'explain') {
+    } else if (currentAIMode === 'explain') {
       if (!activeQuestionForExplanation) {
         setMessages(prev => [...prev, {
           id: Date.now(), type: 'bot',
           content: "You're in 'Explain Mode'. Please click on a previously generated question in the chat to select it for discussion, then type your query."
         }]);
-        setIsGenerating(false); // Not an AI processing error, just user guidance
+        setIsGenerating(false);
         return;
       }
 
-      if (!currentInputText) { // User clicked send without typing a query for the active question
+      if (!currentInputText) {
          setMessages(prev => [...prev, {
           id: Date.now(), type: 'bot',
           content: `You've selected question: "${activeQuestionForExplanation.questionText.substring(0,50)}...". What would you like to ask about it?`
@@ -294,18 +275,17 @@ const AIQuestionAssistant = () => {
         return;
       }
 
-      // User has typed a query for the activeQuestionForExplanation
       setMessages(prev => [...prev, {
         id: Date.now() + Math.random(), type: 'bot',
         content: `Thinking about your query regarding: "${activeQuestionForExplanation.questionText.substring(0, 30)}..."`
       }]);
 
       let targetOptionText;
-      const optionMatch = currentInputText.match(/(option|choice)\s*([A-Da-d1-9])/i); // Allow up to 9 options
+      const optionMatch = currentInputText.match(/(option|choice)\s*([A-Da-d1-9])/i);
       if (optionMatch && activeQuestionForExplanation.options) {
         const letterOrNum = optionMatch[2].toUpperCase();
         let optIndex = -1;
-        if (letterOrNum >= 'A' && letterOrNum <= 'I') { // A-I for 9 options
+        if (letterOrNum >= 'A' && letterOrNum <= 'I') {
           optIndex = letterOrNum.charCodeAt(0) - 'A'.charCodeAt(0);
         } else if (!isNaN(parseInt(letterOrNum, 10))) {
           const num = parseInt(letterOrNum, 10);
@@ -324,7 +304,7 @@ const AIQuestionAssistant = () => {
           options: activeQuestionForExplanation.options,
           correctAnswerIndex: activeQuestionForExplanation.correctAnswer,
           originalExplanation: activeQuestionForExplanation.explanation,
-          userQuery: currentInputText, // The query user typed
+          userQuery: currentInputText,
           targetOptionText: targetOptionText,
         };
         const response = await explainAnswerChoiceAI(payload);
@@ -344,10 +324,8 @@ const AIQuestionAssistant = () => {
         }]);
       }
     }
-    setIsGenerating(false); // Reset loading state
+    setIsGenerating(false);
   };
-
-  
 
   const handleQuestionSelect = (question) => {
     setSelectedQuestion(question);
@@ -439,10 +417,9 @@ const AIQuestionAssistant = () => {
     });
   };
 
-  const handleAddTag = () => {
-    if (currentTag.trim() && !formData.tags.includes(currentTag.trim())) {
-      setFormData({ ...formData, tags: [...formData.tags, currentTag.trim()] });
-      setCurrentTag('');
+  const handleAddPredefinedTag = (tag) => {
+    if (!formData.tags.includes(tag)) {
+      setFormData({ ...formData, tags: [...formData.tags, tag] });
     }
   };
 
@@ -450,20 +427,13 @@ const AIQuestionAssistant = () => {
     setFormData({ ...formData, tags: formData.tags.filter(tag => tag !== tagToRemove) });
   };
 
-  const handleKeyPress = (e) => { // General key press handler
+  const handleKeyPress = (e) => {
     if (e.key === 'Enter') {
       e.preventDefault();
-      // Check if the active element is the main chat input
-      if (e.target.classList.contains('main-chat-input')) {
-        handleSendMessage();
-      } 
-      // Check if the active element is the tag input in the modal
-      else if (e.target.closest('.tag-input-container')) { 
-        handleAddTag();
-      }
+      handleSendMessage();
     }
   };
-
+  
   const handleModalFileChange = (e) => {
     if (e.target.files && e.target.files.length > 0) {
       const files = Array.from(e.target.files);
@@ -527,7 +497,7 @@ const AIQuestionAssistant = () => {
     setUrlInput('');
   };
 
-  const handleUploadMedia = async () => { // For modal media
+  const handleUploadMedia = async () => {
     if (!modalTempFiles.length) { 
       setUploadError('Please select at least one file to upload'); 
       return; 
@@ -560,8 +530,16 @@ const AIQuestionAssistant = () => {
           if (!file.filename || !file.originalname || !file.mimetype || !file.size || !file.path) {
             throw new Error('Invalid media object from server');
           }
+          let type;
+          if (file.mimetype.startsWith('image/')) {
+            type = 'image';
+          } else if (file.mimetype.startsWith('video/')) {
+            type = 'video';
+          } else {
+            type = 'raw';
+          }
           return { 
-            type: file.mimetype.split('/')[0], 
+            type, 
             path: file.path, 
             filename: file.filename, 
             originalname: file.originalname, 
@@ -593,7 +571,28 @@ const AIQuestionAssistant = () => {
     }
   };
 
-  const handleRemoveUploadedMedia = (target, index) => {
+  const handleRemoveUploadedMedia = async (target, index) => {
+    const token = localStorage.getItem('token');
+    let media;
+    if (target === 'question') {
+      media = formData.questionMedia[index];
+    } else if (target === 'explanation') {
+      media = formData.explanationMedia[index];
+    } else if (typeof target === 'number') {
+      media = formData.optionMedia[target][index];
+    }
+
+    if (media && media.type !== 'url') {
+      try {
+        await axios.delete(`/api/uploads/${media.filename}`, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+      } catch (error) {
+        console.error('Error deleting media:', error);
+        setErrorMessage('Failed to delete media from Cloudinary');
+        return;
+      }
+    }
     if (target === 'question') {
       setFormData(prev => ({ 
         ...prev, 
@@ -632,7 +631,6 @@ const AIQuestionAssistant = () => {
   const handleSubmitQuestion = async () => {
     if (!selectedQuestion) return;
 
-    // Validations
     if (formData.questionText.trim() === '') { 
       setErrorMessage('Question text is required'); 
       return; 
@@ -654,7 +652,6 @@ const AIQuestionAssistant = () => {
       return; 
     }
     
-    // Media Validations
     if (formData.questionMedia.some(media => !validateMediaObject(media))) { 
       setErrorMessage('All question media objects must include filename, originalname, mimetype, size, and path'); 
       return; 
@@ -737,16 +734,16 @@ const AIQuestionAssistant = () => {
     }
   };
 
-  const removeFile = (index) => { // For main chat staged files
+  const removeFile = (index) => {
     setUploadedFiles(prev => prev.filter((_, i) => i !== index));
   };
 
   const renderMediaButton = (target, media) => {
     const mediaArray = Array.isArray(media) ? media : [media].filter(Boolean);
     return (
-      <div className="mt-2">
+      <div className="mt-3">
         {mediaArray.length > 0 && (
-          <div className="space-y-2 mb-2">
+          <div className="space-y-2 mb-3">
             {mediaArray.map((mediaItem, index) => (
               <div 
                 key={index} 
@@ -808,27 +805,25 @@ const AIQuestionAssistant = () => {
     }
   };
 
-  // UI for the mode toggle
   const renderModeToggle = () => {
     return (
-      <div className="p-2 bg-gray-100 dark:bg-gray-700 flex justify-center space-x-2">
+      <div className="p-3 bg-gray-100 dark:bg-gray-700 flex justify-center space-x-2">
         <button
           onClick={() => {
             setCurrentAIMode('generate');
-            setActiveQuestionForExplanation(null); // Clear active question
+            setActiveQuestionForExplanation(null);
             setMessages(prev => [...prev, {id: Date.now(), type: 'bot', content: "Switched to 'Generate Mode'. Upload documents or paste text to create new questions."}])
           }}
-          className={`px-3 py-1 text-xs rounded ${currentAIMode === 'generate' ? 'bg-blue-500 text-white' : 'bg-gray-300 dark:bg-gray-600'}`}
+          className={`px-4 py-1.5 text-sm rounded ${currentAIMode === 'generate' ? 'bg-blue-500 text-white' : 'bg-gray-300 dark:bg-gray-600'}`}
         >
           Generate Questions
         </button>
         <button
           onClick={() => {
             setCurrentAIMode('explain');
-            // Don't clear activeQuestionForExplanation here, user might switch back and forth
-             setMessages(prev => [...prev, {id: Date.now(), type: 'bot', content: "Switched to 'Explain Mode'. Click on a previously generated question in the chat to discuss it, then type your query."}])
+            setMessages(prev => [...prev, {id: Date.now(), type: 'bot', content: "Switched to 'Explain Mode'. Click on a previously generated question in the chat to discuss it, then type your query."}])
           }}
-          className={`px-3 py-1 text-xs rounded ${currentAIMode === 'explain' ? 'bg-green-500 text-white' : 'bg-gray-300 dark:bg-gray-600'}`}
+          className={`px-4 py-1.5 text-sm rounded ${currentAIMode === 'explain' ? 'bg-green-500 text-white' : 'bg-gray-300 dark:bg-gray-600'}`}
         >
           Explain Answers
         </button>
@@ -837,10 +832,10 @@ const AIQuestionAssistant = () => {
   };
 
   return (
-    <div className="max-w-4xl mx-auto bg-white dark:bg-gray-800 rounded-lg shadow-lg overflow-hidden">
+    <div className="max-w-8xl mx-auto bg-white dark:bg-gray-800 rounded-lg shadow-lg overflow-hidden p-8 my-8">
       {/* Header */}
-      <div className="bg-blue-600 dark:bg-blue-500 text-white p-4">
-        <h2 className="text-xl font-bold flex items-center">
+      <div className="bg-blue-600 dark:bg-blue-500 text-white p-6">
+        <h2 className="text-2xl font-bold flex items-center">
           <Bot className="mr-2" />
           AI Question Assistant
         </h2>
@@ -851,18 +846,18 @@ const AIQuestionAssistant = () => {
         </p>
       </div>
 
-      {/* AI Mode Toggle - Placed before chat messages for visibility */}
+      {/* AI Mode Toggle */}
       {renderModeToggle()} 
 
       {/* Chat Messages */}
-      <div className="h-96 overflow-y-auto p-4 bg-gray-50 dark:bg-gray-900">
+      <div className="h-[48vh] overflow-y-auto p-6 bg-gray-50 dark:bg-gray-900">
         {messages.map((message) => (
           <div
             key={message.id}
-            className={`mb-4 flex ${message.type === 'user' ? 'justify-end' : 'justify-start'}`}
+            className={`mb-6 flex ${message.type === 'user' ? 'justify-end' : 'justify-start'}`}
           >
             <div
-              className={`max-w-xs lg:max-w-md px-4 py-2 rounded-lg ${
+              className={`max-w-md lg:max-w-lg px-4 py-3 rounded-lg ${
                 message.type === 'user'
                   ? 'bg-blue-600 dark:bg-blue-500 text-white'
                   : 'bg-white dark:bg-gray-700 border dark:border-gray-600 shadow-sm'
@@ -873,20 +868,17 @@ const AIQuestionAssistant = () => {
                 {message.type === 'user' && <User className="w-4 h-4 mr-2 mt-1" />}
                 <div className="flex-1">
                   {message.type === 'bot' ? (
-          // Wrap ReactMarkdown in a div and apply classes to the div
-          <div className="prose prose-sm dark:prose-invert max-w-none text-gray-800 dark:text-gray-200">
-            <ReactMarkdown
-              // No className prop here directly
-              children={message.content}
-              remarkPlugins={[[remarkGfm]]} // Optional
-              // components={{ ... }} // Custom components still work here
-            />
-          </div>
-        ) : (
-          <p className="text-sm text-gray-800 dark:text-gray-200 break-words">{message.content}</p>
-        )}
+                    <div className="prose prose-sm dark:prose-invert max-w-none text-gray-800 dark:text-gray-200">
+                      <ReactMarkdown
+                        children={message.content}
+                        remarkPlugins={[[remarkGfm]]}
+                      />
+                    </div>
+                  ) : (
+                    <p className="text-sm text-gray-800 dark:text-gray-200 break-words">{message.content}</p>
+                  )}
                   {message.file && (
-                    <div className="mt-2 p-2 bg-blue-50 dark:bg-blue-900/50 rounded flex items-center">
+                    <div className="mt-3 p-2 bg-blue-50 dark:bg-blue-900/50 rounded flex items-center">
                       <File className="w-4 h-4 mr-2 text-gray-600 dark:text-gray-300" />
                       <span className="text-xs text-gray-700 dark:text-gray-200">
                         {message.file.name}
@@ -894,24 +886,16 @@ const AIQuestionAssistant = () => {
                     </div>
                   )}
                   {message.questions && (
-                    <div className="mt-3 space-y-2">
+                    <div className="mt-4 space-y-3">
                       {message.questions.map((question) => (
                         <div
                           key={question.id}
-                          className={`p-3 bg-gray-50 dark:bg-gray-800 rounded border dark:border-gray-600 
-                                      ${currentAIMode === 'explain' ? 'cursor-pointer hover:bg-yellow-100 dark:hover:bg-yellow-800/50' : 'hover:bg-gray-100 dark:hover:bg-gray-700'}
-                                      ${activeQuestionForExplanation?.id === question.id && currentAIMode === 'explain' ? 'ring-2 ring-yellow-500 dark:ring-yellow-400' : ''}`}
+                          className={`p-4 bg-gray-50 dark:bg-gray-800 rounded border dark:border-gray-600 
+                            ${currentAIMode === 'explain' ? 'cursor-pointer hover:bg-yellow-100 dark:hover:bg-yellow-800/50' : 'hover:bg-gray-100 dark:hover:bg-gray-700'}
+                            ${activeQuestionForExplanation?.id === question.id && currentAIMode === 'explain' ? 'ring-2 ring-yellow-500 dark:ring-yellow-400' : ''}`}
                           onClick={() => {
-                            // In 'explain' mode, clicking the question selects it for discussion.
-                            // In 'generate' mode, clicking the question (or its customize button) opens the form.
                             if (currentAIMode === 'explain') {
                               handleChatQuestionClick(question.id);
-                            } else {
-                              // If you want the whole block to be clickable to customize in generate mode:
-                              // handleQuestionSelect(question);
-                              // Or, rely solely on the "Click to customize" button below.
-                              // For clarity, let's make it so only the button triggers customization in generate mode.
-                              // If you want the whole block, uncomment the line above and potentially remove the button's specific onClick.
                             }
                           }}
                         >
@@ -932,21 +916,19 @@ const AIQuestionAssistant = () => {
                               </p>
                             ))}
                           </div>
-
-                          {/* "Customize" button only shown in generate mode, or if you always want it */}
-                          {/* For clarity, let's show it always but its action might be just opening the form */}
                           <button
                             onClick={(e) => {
-                              e.stopPropagation(); // Prevent triggering the parent div's onClick if it also calls handleQuestionSelect
+                              e.stopPropagation();
                               handleQuestionSelect(question);
                             }}
-                            className="mt-2 text-xs text-blue-600 dark:text-blue-300 hover:text-blue-800 dark:hover:text-blue-200"
+                            className="mt-3 text-xs text-blue-600 dark:text-blue-300 hover:text-blue-800 dark:hover:text-blue-200"
                           >
                             Customize & Add →
                           </button>
-
                           {currentAIMode === 'explain' && activeQuestionForExplanation?.id === question.id && (
-                            <p className="mt-1 text-xs text-yellow-600 dark:text-yellow-400 font-semibold">(Selected for explanation)</p>
+                            <p className="mt-1 text-xs text-yellow-600
+
+ dark:text-yellow-400 font-semibold">(Selected for explanation)</p>
                           )}
                         </div>
                       ))}
@@ -958,8 +940,8 @@ const AIQuestionAssistant = () => {
           </div>
         ))}
         {isGenerating && (
-          <div className="flex justify-start mb-4">
-            <div className="bg-white dark:bg-gray-700 border dark:border-gray-600 shadow-sm rounded-lg px-4 py-2">
+          <div className="flex justify-start mb-6">
+            <div className="bg-white dark:bg-gray-700 border dark:border-gray-600 shadow-sm rounded-lg px-4 py-3">
               <div className="flex items-center">
                 <Bot className="w-4 h-4 mr-2 text-blue-600 dark:text-blue-300" />
                 <Loader className="w-4 h-4 animate-spin mr-2 text-gray-600 dark:text-gray-300" />
@@ -974,8 +956,8 @@ const AIQuestionAssistant = () => {
       </div>
 
       {/* Staged Files Display Area */}
-      {uploadedFiles.length > 0 && currentAIMode === 'generate' && ( // Only show if in generate mode
-        <div className="px-4 py-2 bg-blue-50 dark:bg-blue-900/50 border-t dark:border-gray-700">
+      {uploadedFiles.length > 0 && currentAIMode === 'generate' && (
+        <div className="px-6 py-3 bg-blue-50 dark:bg-blue-900/50 border-t dark:border-gray-700">
           <p className="text-xs text-blue-800 dark:text-blue-300 mb-2">
             Files staged for sending:
           </p>
@@ -1002,30 +984,22 @@ const AIQuestionAssistant = () => {
       )}
 
       {/* Input Area */}
-      <div className="p-4 border-t dark:border-gray-700">
-        <div className="flex items-center space-x-2">
+      <div className="p-6 border-t dark:border-gray-700">
+        <div className="flex items-center space-x-3">
           <input
             type="text"
             value={inputText}
             onChange={(e) => setInputText(e.target.value)}
-            onKeyPress={handleKeyPress} // Assuming handleKeyPress calls handleSendMessage on Enter
+            onKeyPress={handleKeyPress}
             placeholder={
               currentAIMode === 'generate'
                 ? (uploadedFiles.length > 0 ? "Type instructions for uploaded files..." : "Paste concepts or type instructions...")
                 : (activeQuestionForExplanation ? `Ask about "${activeQuestionForExplanation.questionText.substring(0,20)}..."` : "Select a question above to discuss...")
             }
-            className="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-300 main-chat-input"
-            disabled={currentAIMode === 'explain' && !activeQuestionForExplanation && !isGenerating} // Disable if in explain mode but no question selected
+            className="flex-1 px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-300 main-chat-input"
+            disabled={currentAIMode === 'explain' && !activeQuestionForExplanation && !isGenerating}
           />
-          <input
-            type="file"
-            ref={fileInputRef} // CRUCIAL
-            onChange={handleFileUpload}
-            multiple
-            accept=".pdf,.doc,.docx,.txt,image/*"
-            className="hidden"    // CRUCIAL - it should be hidden, not absent
-          />
-          {currentAIMode === 'generate' && ( // Only show upload button in generate mode
+          {currentAIMode === 'generate' && (
             <button
               onClick={() => fileInputRef.current?.click()}
               className="p-2 text-gray-600 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-600 border border-gray-300 dark:border-gray-400 rounded-lg hover:bg-blue-100 dark:hover:bg-gray-600"
@@ -1053,32 +1027,40 @@ const AIQuestionAssistant = () => {
             <Send className="w-5 h-5" />
           </button>
         </div>
+        <input
+          type="file"
+          ref={fileInputRef}
+          onChange={handleFileUpload}
+          multiple
+          accept=".pdf,.doc,.docx,.txt,image/*"
+          className="hidden"
+        />
       </div>
 
       {/* Question Customization Modal */}
       {showQuestionForm && selectedQuestion && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 dark:bg-white dark:bg-opacity-20 flex items-center justify-center z-50">
-          <div className="bg-white dark:bg-gray-800 rounded-lg p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto">
-            <h3 className="text-lg font-bold mb-4 text-gray-900 dark:text-gray-200">
+        <div className="fixed inset-0 bg-black bg-opacity-50 dark:bg-white dark:bg-opacity-20 flex items-center justify-center">
+          <div className="bg-white dark:bg-gray-800 rounded-lg p-8 w-full max-w-3xl max-h-[90vh] overflow-y-auto">
+            <h3 className="text-xl font-bold mb-6 text-gray-900 dark:text-gray-200">
               Customize and Add Question
             </h3>
             
             {successMessage && (
-              <div className="mb-4 bg-green-100 dark:bg-green-900/50 border border-green-400 dark:border-green-600 text-green-700 dark:text-green-300 px-4 py-3 rounded flex items-center">
+              <div className="mb-6 bg-green-100 dark:bg-green-900/50 border border-green-400 dark:border-green-600 text-green-700 dark:text-green-300 px-4 py-3 rounded flex items-center">
                 <CheckCircle className="w-5 h-5 mr-2" />
                 <span>{successMessage}</span>
               </div>
             )}
             {errorMessage && (
-              <div className="mb-4 bg-red-100 dark:bg-red-900/50 border border-red-400 dark:border-red-600 text-red-700 dark:text-red-300 px-4 py-3 rounded">
+              <div className="mb-6 bg-red-100 dark:bg-red-900/50 border border-red-400 dark:border-red-600 text-red-700 dark:text-red-300 px-4 py-3 rounded">
                 {errorMessage}
               </div>
             )}
             
             {/* Media Upload Sub-Modal */}
             {uploadingFor !== null && (
-              <div className="fixed inset-0 bg-black bg-opacity-50 dark:bg-opacity-70 flex items-center justify-center z-[60]">
-                <div className="bg-white dark:bg-gray-800 rounded-lg p-6 w-full max-w-md">
+              <div className="fixed inset-0 bg-black bg-opacity-50 dark:bg-opacity-70 flex items-center justify-center">
+                <div className="bg-white dark:bg-gray-800 rounded-lg p-8 w-full max-w-lg">
                   <h3 className="text-lg font-semibold mb-4 text-gray-900 dark:text-gray-100">
                     Add Media or URL {uploadingFor === 'question' ? 'for Question' : uploadingFor === 'explanation' ? 'for Explanation' : `for Option ${String.fromCharCode(65 + uploadingFor)}`}
                   </h3>
@@ -1106,7 +1088,7 @@ const AIQuestionAssistant = () => {
                       Paste URL
                     </label>
                   </div>
-                  <div className="mb-4">
+                  <div className="mb-6">
                     {mediaType === 'file' && !modalTempFiles.length ? (
                       <label className="flex flex-col items-center justify-center w-full h-32 border-2 border-dashed rounded-lg cursor-pointer bg-gray-50 dark:bg-gray-700 hover:bg-gray-100 dark:hover:bg-gray-600">
                         <Upload className="w-8 h-8 mb-3 text-gray-400 dark:text-gray-300" />
@@ -1160,7 +1142,7 @@ const AIQuestionAssistant = () => {
                           value={urlInput} 
                           onChange={(e) => setUrlInput(e.target.value)} 
                           placeholder="Paste URL (e.g., https://example.com/image.jpg)" 
-                          className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-300" 
+                          className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-300" 
                         />
                         <button 
                           type="button" 
@@ -1175,12 +1157,12 @@ const AIQuestionAssistant = () => {
                   </div>
 
                   {uploadError && (
-                    <div className="mb-4 text-sm text-red-600 dark:text-red-300">
+                    <div className="mb-6 text-sm text-red-600 dark:text-red-300">
                       {uploadError}
                     </div>
                   )}
                   {uploadSuccess && (
-                    <div className="mb-4 text-sm text-green-600 dark:text-green-300 flex items-center">
+                    <div className="mb-6 text-sm text-green-600 dark:text-green-300 flex items-center">
                       <CheckCircle size={16} className="mr-1" />
                       {mediaType === 'file' && modalTempFiles.length === 0 
                         ? 'File(s) uploaded and added!' 
@@ -1234,7 +1216,7 @@ const AIQuestionAssistant = () => {
               </div>
             )}
             
-            <div className="mb-6">
+            <div className="mb-8">
               <label 
                 className="block text-gray-700 dark:text-gray-300 font-medium mb-2" 
                 htmlFor="questionText"
@@ -1246,16 +1228,16 @@ const AIQuestionAssistant = () => {
                 name="questionText" 
                 value={formData.questionText} 
                 onChange={handleInputChange} 
-                rows="3" 
-                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-300" 
+                rows="4" 
+                className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-300" 
                 placeholder="Enter the question text here..." 
                 required 
               />
               {renderMediaButton('question', formData.questionMedia)}
             </div>
 
-            <div className="mb-6">
-              <div className="flex justify-between items-center mb-2">
+            <div className="mb-8">
+              <div className="flex justify-between items-center mb-3">
                 <label className="block text-gray-700 dark:text-gray-300 font-medium">
                   Options* (Select correct answer)
                 </label>
@@ -1267,7 +1249,7 @@ const AIQuestionAssistant = () => {
                   <Plus size={16} className="mr-1" /> Add Option
                 </button>
               </div>
-              <div className="space-y-3">
+              <div className="space-y-4">
                 {formData.options.map((option, index) => (
                   <div key={index} className="flex flex-col">
                     <div className="flex items-center">
@@ -1285,7 +1267,7 @@ const AIQuestionAssistant = () => {
                         type="text" 
                         value={option} 
                         onChange={(e) => handleOptionChange(index, e.target.value)} 
-                        className="flex-grow px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-300" 
+                        className="flex-grow px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-300" 
                         placeholder={`Option ${String.fromCharCode(65 + index)}`} 
                         required 
                       />
@@ -1304,7 +1286,7 @@ const AIQuestionAssistant = () => {
               </div>
             </div>
 
-            <div className="mb-6">
+            <div className="mb-8">
               <label 
                 className="block text-gray-700 dark:text-gray-300 font-medium mb-2" 
                 htmlFor="explanation"
@@ -1316,15 +1298,15 @@ const AIQuestionAssistant = () => {
                 name="explanation" 
                 value={formData.explanation} 
                 onChange={handleInputChange} 
-                rows="3" 
-                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-300" 
+                rows="4" 
+                className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-300" 
                 placeholder="Explain the correct answer..." 
                 required 
               />
               {renderMediaButton('explanation', formData.explanationMedia)}
             </div>
 
-            <div className="mb-6">
+            <div className="mb-8">
               <label className="block text-gray-700 dark:text-gray-300 font-medium mb-2">
                 Difficulty*
               </label>
@@ -1348,17 +1330,17 @@ const AIQuestionAssistant = () => {
               </div>
             </div>
 
-            <div className="mb-6">
+            <div className="mb-8">
               <label className="block text-gray-700 dark:text-gray-300 font-medium mb-2">
                 Category*
               </label>
-              <div className="flex gap-2 flex-wrap">
+              <div className="flex gap-3 flex-wrap">
                 {Object.keys(subjectsByCategory).map(cat => (
                   <button 
                     key={cat} 
                     type="button" 
                     onClick={() => handleCategoryChange(cat)} 
-                    className={`px-3 py-1 text-xs rounded ${
+                    className={`px-4 py-1.5 text-sm rounded ${
                       formData.category === cat 
                         ? 'bg-blue-500 dark:bg-blue-400 text-white' 
                         : 'bg-blue-100 dark:bg-blue-900/50 text-blue-800 dark:text-blue-300 hover:bg-blue-200 dark:hover:bg-blue-800'
@@ -1370,17 +1352,17 @@ const AIQuestionAssistant = () => {
               </div>
             </div>
 
-            <div className="mb-6">
+            <div className="mb-8">
               <label className="block text-gray-700 dark:text-gray-300 font-medium mb-2">
                 Select Subjects*
               </label>
-              <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+              <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
                 {(subjectsByCategory[formData.category] || []).map((subject) => (
                   <button 
                     key={subject} 
                     type="button" 
                     onClick={() => handleSubjectToggle(subject)} 
-                    className={`px-3 py-1 text-xs rounded ${
+                    className={`px-4 py-1.5 text-sm rounded ${
                       formData.subjects.some(s => s.name === subject) 
                         ? 'bg-green-500 dark:bg-green-400 text-white' 
                         : 'bg-green-100 dark:bg-green-900/50 text-green-700 dark:text-green-300 hover:bg-green-200 dark:hover:bg-green-800'
@@ -1393,7 +1375,7 @@ const AIQuestionAssistant = () => {
             </div>
 
             {formData.subjects.length > 0 && (
-              <div className="mb-6">
+              <div className="mb-8">
                 <label className="block text-gray-700 dark:text-gray-300 font-medium mb-2">
                   Select Topics
                 </label>
@@ -1423,26 +1405,21 @@ const AIQuestionAssistant = () => {
               </div>
             )}
 
-            <div className="mb-6 tag-input-container">
+            <div className="mb-8 tag-input-container">
               <label className="block text-gray-700 dark:text-gray-300 font-medium mb-2">
                 Tags (Optional)
               </label>
-              <div className="flex items-center mb-2">
-                <input 
-                  type="text" 
-                  value={currentTag} 
-                  onChange={(e) => setCurrentTag(e.target.value)} 
-                  onKeyPress={handleKeyPress} 
-                  className="flex-grow px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-300" 
-                  placeholder="Add a tag and press Enter..." 
-                />
-                <button 
-                  type="button" 
-                  onClick={handleAddTag} 
-                  className="ml-2 px-4 py-2 bg-blue-600 dark:bg-blue-500 text-white rounded hover:bg-blue-700 dark:hover:bg-blue-400"
-                >
-                  Add
-                </button>
+              <div className="flex gap-2 mb-3">
+                {['step1', 'step2', 'step3'].map(step => (
+                  <button
+                    key={step}
+                    type="button"
+                    onClick={() => handleAddPredefinedTag(step)}
+                    className="px-4 py-2 bg-blue-600 dark:bg-blue-500 text-white rounded hover:bg-blue-700 dark:hover:bg-blue-400"
+                  >
+                    {step}
+                  </button>
+                ))}
               </div>
               <div className="flex flex-wrap gap-2">
                 {formData.tags.map((tag, index) => (
@@ -1463,7 +1440,7 @@ const AIQuestionAssistant = () => {
               </div>
             </div>
 
-            <div className="mb-6">
+            <div className="mb-8">
               <label 
                 className="block text-gray-700 dark:text-gray-300 font-medium mb-2" 
                 htmlFor="sourceUrl"
@@ -1476,7 +1453,7 @@ const AIQuestionAssistant = () => {
                 type="url" 
                 value={formData.sourceUrl} 
                 onChange={handleInputChange} 
-                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-300" 
+                className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-300" 
                 placeholder="Enter source URL (e.g., https://example.com)" 
               />
             </div>

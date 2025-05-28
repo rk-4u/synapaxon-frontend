@@ -952,7 +952,7 @@ const renderHighlightedText = (text, questionId) => {
                       : 'No question text'}
                   </h2>
                 </div>
-                {isQuestionSubmitted && currentQuestion?.questionMedia?.length > 0 && (
+                { currentQuestion?.questionMedia?.length > 0 && (
                   <div className="mt-2 flex flex-wrap gap-2">
                     {currentQuestion.questionMedia.map((media, index) => (
                       <ErrorBoundary key={index}>

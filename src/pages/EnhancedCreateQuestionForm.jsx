@@ -21,7 +21,6 @@ const EnhancedCreateQuestionForm = ({ onQuestionCreated = () => {} }) => {
     sourceUrl: ''
   });
 
-  const [currentTag, setCurrentTag] = useState('');
   const [successMessage, setSuccessMessage] = useState('');
   const [errorMessage, setErrorMessage] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -121,13 +120,12 @@ const EnhancedCreateQuestionForm = ({ onQuestionCreated = () => {} }) => {
     });
   };
 
-  const handleAddTag = () => {
-    if (currentTag.trim() && !formData.tags.includes(currentTag.trim())) {
+  const handleAddPredefinedTag = (tag) => {
+    if (!formData.tags.includes(tag)) {
       setFormData({
         ...formData,
-        tags: [...formData.tags, currentTag.trim()]
+        tags: [...formData.tags, tag]
       });
-      setCurrentTag('');
     }
   };
 
@@ -136,13 +134,6 @@ const EnhancedCreateQuestionForm = ({ onQuestionCreated = () => {} }) => {
       ...formData,
       tags: formData.tags.filter(tag => tag !== tagToRemove)
     });
-  };
-
-  const handleKeyPress = (e) => {
-    if (e.key === 'Enter') {
-      e.preventDefault();
-      handleAddTag();
-    }
   };
 
   const handleFileChange = (e) => {
@@ -255,8 +246,16 @@ const EnhancedCreateQuestionForm = ({ onQuestionCreated = () => {} }) => {
           if (!file.filename || !file.originalname || !file.mimetype || !file.size || !file.path) {
             throw new Error('Invalid media object from server');
           }
+          let type;
+          if (file.mimetype.startsWith('image/')) {
+            type = 'image';
+          } else if (file.mimetype.startsWith('video/')) {
+            type = 'video';
+          } else {
+            type = 'raw';
+          }
           return {
-            type: file.mimetype.split('/')[0],
+            type,
             path: file.path,
             filename: file.filename,
             originalname: file.originalname,
@@ -294,7 +293,29 @@ const EnhancedCreateQuestionForm = ({ onQuestionCreated = () => {} }) => {
     }
   };
 
-  const handleRemoveUploadedMedia = (target, index) => {
+  const handleRemoveUploadedMedia = async (target, index) => {
+    const token = localStorage.getItem('token');
+    let media;
+    if (target === 'question') {
+      media = formData.questionMedia[index];
+    } else if (target === 'explanation') {
+      media = formData.explanationMedia[index];
+    } else if (typeof target === 'number') {
+      media = formData.optionMedia[target][index];
+    }
+
+    if (media && media.type !== 'url') {
+      try {
+        await axios.delete(`/api/uploads/${media.filename}`, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+      } catch (error) {
+        console.error('Error deleting media:', error);
+        setErrorMessage('Failed to delete media from Cloudinary');
+        return;
+      }
+    }
+
     if (target === 'question') {
       const updatedQuestionMedia = [...formData.questionMedia];
       updatedQuestionMedia.splice(index, 1);
@@ -868,22 +889,17 @@ const EnhancedCreateQuestionForm = ({ onQuestionCreated = () => {} }) => {
         
         <div className="mb-6">
           <label className="block text-gray-700 dark:text-gray-300 font-medium mb-2">Tags (Optional)</label>
-          <div className="flex items-center mb-2">
-            <input
-              type="text"
-              value={currentTag}
-              onChange={(e) => setCurrentTag(e.target.value)}
-              onKeyPress={handleKeyPress}
-              className="flex-grow px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-300"
-              placeholder="Add a tag and press Enter..."
-            />
-            <button
-              type="button"
-              onClick={handleAddTag}
-              className="ml-2 px-4 py-2 bg-blue-600 dark:bg-blue-500 text-white rounded hover:bg-blue-700 dark:hover:bg-blue-400"
-            >
-              Add
-            </button>
+          <div className="flex gap-2 mb-2">
+            {['step1', 'step2', 'step3'].map(step => (
+              <button
+                key={step}
+                type="button"
+                onClick={() => handleAddPredefinedTag(step)}
+                className="px-4 py-2 bg-blue-600 dark:bg-blue-500 text-white rounded hover:bg-blue-700 dark:hover:bg-blue-400"
+              >
+                {step}
+              </button>
+            ))}
           </div>
           <div className="flex flex-wrap gap-2">
             {formData.tags.map((tag, index) => (

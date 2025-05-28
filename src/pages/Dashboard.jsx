@@ -4,6 +4,7 @@ import { FiTrendingUp, FiLayers, FiActivity, FiFileText } from 'react-icons/fi';
 import { useAuth } from '../contexts/AuthContext';
 import { useNavigate, Outlet, useLocation } from 'react-router-dom';
 import TestDetailPage from './TestDetailPage';
+import AIQuestionAssistant from './AIQuestionAssistant';
 
 function Dashboard() {
   const { currentUser, logout } = useAuth();
@@ -54,6 +55,8 @@ function Dashboard() {
       setActiveComponent('create');
     } else if (path.includes('/my-questions')) {
       setActiveComponent('my-questions');
+    } else if (path.includes('create/AIQuestionAssistant')) {
+      setActiveComponent('AiQuestionAssistant');
     } else if (path.includes('/attempted-questions')) {
       setActiveComponent('attempted-questions');
     }

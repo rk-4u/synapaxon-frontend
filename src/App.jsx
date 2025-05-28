@@ -43,10 +43,10 @@ function App() {
           <Route path="my-questions" element={<MyCreatedQuestionsPage />} />
           <Route path="attempted-questions" element={<AttemptedQuestionsPage />} />
           <Route path="test-detail/:testId" element={<ProtectedRoute><TestDetailPage /></ProtectedRoute>} />
+          <Route path="create/AIQuestionAssistant" element={<ProtectedRoute><AIQuestionAssistant /></ProtectedRoute>} />
         </Route>
         <Route path="/dashboard/test-runner" element={<ProtectedRoute><TestRunnerPage /></ProtectedRoute>} />
 
-        <Route path="/dashboard/create/AIQuestionAssistant" element={<ProtectedRoute><AIQuestionAssistant /></ProtectedRoute>} />
 
         {/* Admin Routes */}
         <Route path="/admin/*" element={<ProtectedRoute><AdminLayout /></ProtectedRoute>}>
