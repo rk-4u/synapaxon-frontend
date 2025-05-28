@@ -5,6 +5,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { useNavigate, Outlet, useLocation } from 'react-router-dom';
 import TestDetailPage from './TestDetailPage';
 import AIQuestionAssistant from './AIQuestionAssistant';
+import AIChatBot from './AIChatBot';
 
 function Dashboard() {
   const { currentUser, logout } = useAuth();
@@ -250,6 +251,7 @@ function Dashboard() {
       <div className="container mx-auto px-4 py-8">
         {shouldShowWelcome ? renderWelcome() : <Outlet />}
       </div>
+      <AIChatBot />
     </div>
   );
 }
