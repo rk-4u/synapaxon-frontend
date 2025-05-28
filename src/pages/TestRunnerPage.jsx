@@ -4,6 +4,7 @@ import axios from '../api/axiosConfig';
 import { Menu, Clock, Flag, Check, ChevronLeft, ChevronRight, X, PlayCircle, PauseCircle, MessageSquare, Calculator as CalculatorIcon, Beaker, Sun, Moon } from 'lucide-react';
 import MediaDisplay from './MediaDisplay';
 import Calculator from './Calculator';
+import LabValuesModal from './LabValuesModal';
 
 const ErrorBoundary = ({ children }) => {
   const [hasError, setHasError] = useState(false);
@@ -1174,41 +1175,30 @@ const renderHighlightedText = (text, questionId) => {
                 </div>
               ) : (
                 <div>
-                  {activeFeature === 'calculator' ? (
-                    <div className="relative">
-                      <button
-                        onClick={() => setActiveFeature('none')}
-                        className="absolute top-2 right-2 text-gray-500 dark:text-gray-200 hover:text-gray-700 dark:hover:text-gray-300"
-                        aria-label="Close"
-                      >
-                        <X size={16} />
-                      </button>
-                      <Calculator onClose={() => setActiveFeature('none')} />
-                    </div>
-                  ) : activeFeature === 'lab' ? (
-                    <div className="text-center p-4 relative">
-                      <button
-                        onClick={() => setActiveFeature('none')}
-                        className="absolute top-2 right-2 text-gray-500 dark:text-gray-200 hover:text-gray-700 dark:hover:text-gray-300"
-                        aria-label="Close"
-                      >
-                        <X size={16} />
-                      </button>
-                      <p className="text-gray-700 dark:text-gray-200">Open Lab feature coming soon!</p>
-                    </div>
-                  ) : activeFeature === 'chat' ? (
-                    <div className="text-center p-4 relative">
-                      <button
-                        onClick={() => setActiveFeature('none')}
-                        className="absolute top-2 right-2 text-gray-500 dark:text-gray-200 hover:text-gray-700 dark:hover:text-gray-300"
-                        aria-label="Close"
-                      >
-                        <X size={16} />
-                      </button>
-                      <p className="text-gray-700 dark:text-gray-200">Chat feature coming soon!</p>
-                    </div>
-                  ) : null}
+              {activeFeature === 'calculator' ? (
+                <div className="relative">
+                  <button onClick={() => setActiveFeature('none')} className="absolute top-2 right-2 text-gray-500 dark:text-gray-200 hover:text-gray-700 dark:hover:text-gray-300" aria-label="Close">
+                    <X size={16} />
+                  </button>
+                  <Calculator onClose={() => setActiveFeature('none')} />
                 </div>
+              ) : activeFeature === 'lab' ? (
+                <div className="relative">
+                  <button onClick={() => setActiveFeature('none')} className="absolute top-2 right-2 text-gray-500 dark:text-gray-200 hover:text-gray-700 dark:hover:text-gray-300" aria-label="Close">
+                    <X size={16} />
+                  </button>
+                  <LabValuesModal onClose={() => setActiveFeature('none')} />
+                </div>
+              ) : activeFeature === 'chat' ? (
+                <div className="text-center p-4 relative">
+                  <button onClick={() => setActiveFeature('none')} className="absolute top-2 right-2 text-gray-500 dark:text-gray-200 hover:text-gray-700 dark:hover:text-gray-300" aria-label="Close">
+                    <X size={16} />
+                  </button>
+                  <p className="text-gray-700 dark:text-gray-200">Chat feature coming soon!</p>
+                </div>
+              ) : null}
+            </div>
+
               )}
             </div>
           </div>

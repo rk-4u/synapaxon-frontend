@@ -36,20 +36,20 @@ function App() {
         <Route path="/auth/callback" element={<GoogleAuthCallback />} />
 
         {/* Student Dashboard Routes */}
-        <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>}>
+        <Route path="/dashboard" element={<ProtectedRoute requiredRole="student"><Dashboard /></ProtectedRoute>}>
           <Route path="starttest" element={<QuestionFilterPage />} />
           <Route path="history" element={<TestHistoryPage />} />
           <Route path="create" element={<EnhancedCreateQuestionForm />} />
           <Route path="my-questions" element={<MyCreatedQuestionsPage />} />
           <Route path="attempted-questions" element={<AttemptedQuestionsPage />} />
-          <Route path="test-detail/:testId" element={<ProtectedRoute><TestDetailPage /></ProtectedRoute>} />
-          <Route path="create/AIQuestionAssistant" element={<ProtectedRoute><AIQuestionAssistant /></ProtectedRoute>} />
+          <Route path="test-detail/:testId" element={<ProtectedRoute requiredRole="student"><TestDetailPage /></ProtectedRoute>} />
+          <Route path="create/AIQuestionAssistant" element={<ProtectedRoute requiredRole="student"><AIQuestionAssistant /></ProtectedRoute>} />
         </Route>
-        <Route path="/dashboard/test-runner" element={<ProtectedRoute><TestRunnerPage /></ProtectedRoute>} />
+        <Route path="/dashboard/test-runner" element={<ProtectedRoute requiredRole="student"><TestRunnerPage /></ProtectedRoute>} />
 
 
         {/* Admin Routes */}
-        <Route path="/admin/*" element={<ProtectedRoute><AdminLayout /></ProtectedRoute>}>
+        <Route path="/admin/*" element={<ProtectedRoute requiredRole="admin"><AdminLayout /></ProtectedRoute>}>
           <Route index element={<AdminDashboard />} />
           <Route path="analytics" element={<Analytics />} />
           <Route path="content" element={<Content />} />
