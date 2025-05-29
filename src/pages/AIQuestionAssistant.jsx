@@ -50,6 +50,7 @@ const AIQuestionAssistant = () => {
 
   const [currentAIMode, setCurrentAIMode] = useState('generate');
   const [activeQuestionForExplanation, setActiveQuestionForExplanation] = useState(null);
+  const [isLiteralMode, setIsLiteralMode] = useState(false);
 
   // Effects
   useEffect(() => {
@@ -88,7 +89,7 @@ const AIQuestionAssistant = () => {
     }
   };
 
-  const generateQuestionsFromFiles = async (filesToProcess, instructionsForAI) => {
+  const generateQuestionsFromFiles = async (filesToProcess, instructionsForAI, forLiteralMode) => {
     if (!filesToProcess || filesToProcess.length === 0) {
       setMessages(prev => [...prev, {
         id: Date.now(),
@@ -108,7 +109,7 @@ const AIQuestionAssistant = () => {
     const effectiveInstructions = instructionsForAI ? instructionsForAI.trim() : undefined;
 
     try {
-      const response = await generateQuestionsFromDocumentAI(filesToProcess, effectiveInstructions);
+      const response = await generateQuestionsFromDocumentAI(filesToProcess, effectiveInstructions, forLiteralMode);
 
       if (response.success && response.data && response.data.length > 0) {
         const aiGeneratedQuestions = response.data.map(q => ({
@@ -217,7 +218,7 @@ const AIQuestionAssistant = () => {
 
     if (currentAIMode === 'generate') {
       if (uploadedFiles.length > 0) {
-        await generateQuestionsFromFiles([...uploadedFiles], currentInputText || undefined);
+        await generateQuestionsFromFiles([...uploadedFiles], currentInputText || undefined, isLiteralMode);
         setUploadedFiles([]);
       } else if (currentInputText) {
         setMessages(prev => [...prev, {
@@ -226,7 +227,7 @@ const AIQuestionAssistant = () => {
           content: `Analyzing your pasted text for concepts and generating questions...`
         }]);
         try {
-          const response = await generateQuestionsFromTextAI(currentInputText);
+          const response = await generateQuestionsFromTextAI(currentInputText, undefined, isLiteralMode);
           if (response.success && response.data && response.data.length > 0) {
             const aiGeneratedQuestions = response.data.map(q => ({ ...q }));
             const botMessage = {
@@ -831,6 +832,31 @@ const AIQuestionAssistant = () => {
     );
   };
 
+  const renderLiteralModeToggle = () => {
+    return (
+      <div className="my-2 flex items-center justify-center space-x-2 p-2 bg-gray-100 dark:bg-gray-700 rounded">
+        <span className={`text-sm font-medium ${!isLiteralMode ? 'text-blue-600 dark:text-blue-300' : 'text-gray-500 dark:text-gray-400'}`}>
+          AI Generates
+        </span>
+        <button
+          onClick={() => setIsLiteralMode(!isLiteralMode)}
+          className={`relative inline-flex items-center h-6 rounded-full w-11 transition-colors focus:outline-none ${
+            isLiteralMode ? 'bg-green-500' : 'bg-gray-300 dark:bg-gray-600'
+          }`}
+        >
+          <span
+            className={`inline-block w-4 h-4 transform bg-white rounded-full transition-transform ${
+              isLiteralMode ? 'translate-x-6' : 'translate-x-1'
+            }`}
+          />
+        </button>
+        <span className={`text-sm font-medium ${isLiteralMode ? 'text-green-600 dark:text-green-300' : 'text-gray-500 dark:text-gray-400'}`}>
+          AI Parses Literally
+        </span>
+      </div>
+    );
+  };
+
   return (
     <div className="max-w-8xl mx-auto bg-white dark:bg-gray-800 rounded-lg shadow-lg overflow-hidden p-8 my-8">
       {/* Header */}
@@ -848,6 +874,9 @@ const AIQuestionAssistant = () => {
 
       {/* AI Mode Toggle */}
       {renderModeToggle()} 
+       
+      {/* Literal Toggle */}
+      {renderLiteralModeToggle()}
 
       {/* Chat Messages */}
       <div className="h-[48vh] overflow-y-auto p-6 bg-gray-50 dark:bg-gray-900">

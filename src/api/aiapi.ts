@@ -5,7 +5,7 @@ import axios from 'axios';
 // In development, this might be http://localhost:8000
 // In production, this will be the URL where your FastAPI AI service is deployed.
 // It's good practice to use environment variables for this.
-const AI_BACKEND_URL = 'https://syna-backend-hyty.onrender.com';
+const AI_BACKEND_URL = 'https://tense-christy-ujjwal0704-a552bc8a.koyeb.app';
 
 const aiApiClient = axios.create({
   baseURL: AI_BACKEND_URL,
@@ -34,7 +34,8 @@ interface AIGenerateQuestionsResponse {
 
 export const generateQuestionsFromDocumentAI = async (
   files: File[],
-  userInstructions?: string
+  userInstructions?: string,
+  literalMode?: boolean
 ): Promise<AIGenerateQuestionsResponse> => {
   const formData = new FormData();
   files.forEach((file) => {
@@ -44,7 +45,7 @@ export const generateQuestionsFromDocumentAI = async (
   if (userInstructions) {
     formData.append('user_instructions', userInstructions);
   }
-
+    formData.append('literal_mode', literalMode ? 'true' : 'false');
   try {
     // The endpoint path defined in your FastAPI app
     const response = await aiApiClient.post<AIGenerateQuestionsResponse>(
@@ -83,12 +84,14 @@ export const generateQuestionsFromDocumentAI = async (
 
 export const generateQuestionsFromTextAI = async (
   rawText: string,
-  userInstructions?: string
+  userInstructions?: string,
+  literalMode?: boolean
 ): Promise<AIGenerateQuestionsResponse> => {
   try {
     const payload = {
       raw_text: rawText,
       user_instructions: userInstructions,
+      literal_mode: literalMode || false,
     };
 
     const response = await aiApiClient.post<AIGenerateQuestionsResponse>(
