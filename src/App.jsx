@@ -21,6 +21,8 @@ import AnalyticsDashboard from './admin/pages/AnalyticsDashboard';
 import UserManagement from './admin/pages/UserManagement';
 import QuestionBank from './admin/pages/QuestionBank';
 import AIQuestionAssistant from './pages/AIQuestionAssistant';
+import Subscribers from './admin/pages/Subscribers';
+
 
 function App() {
   return (
@@ -50,6 +52,7 @@ function App() {
           <Route path="analytics" element={<AnalyticsDashboard />} />
           <Route path="users" element={<UserManagement />} />
           <Route path="questions" element={<QuestionBank />} /> {/* Add this line */}
+          <Route path="subscribers" element={<Subscribers />} />
         </Route>
 
         {/* 404 Route */}
