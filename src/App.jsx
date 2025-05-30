@@ -1,4 +1,3 @@
-// src/App.jsx
 import React from 'react';
 import { Routes, Route } from 'react-router-dom';
 import { AuthProvider } from './contexts/AuthContext';
@@ -18,11 +17,9 @@ import TestDetailPage from './pages/TestDetailPage';
 import Bird404Scene from './components/Bird404Scene';
 import AdminLayout from './admin/AdminLayout';
 import AdminDashboard from './admin/pages/AdminDashboard';
-import Analytics from './admin/pages/Analytics';
-import Content from './admin/pages/Content';
-import Questions from './admin/pages/Questions';
-import Settings from './admin/pages/Settings';
-import Users from './admin/pages/Users';
+import AnalyticsDashboard from './admin/pages/AnalyticsDashboard';
+import UserManagement from './admin/pages/UserManagement';
+import QuestionBank from './admin/pages/QuestionBank';
 import AIQuestionAssistant from './pages/AIQuestionAssistant';
 
 function App() {
@@ -47,15 +44,12 @@ function App() {
         </Route>
         <Route path="/dashboard/test-runner" element={<ProtectedRoute requiredRole="student"><TestRunnerPage /></ProtectedRoute>} />
 
-
         {/* Admin Routes */}
         <Route path="/admin/*" element={<ProtectedRoute requiredRole="admin"><AdminLayout /></ProtectedRoute>}>
           <Route index element={<AdminDashboard />} />
-          <Route path="analytics" element={<Analytics />} />
-          <Route path="content" element={<Content />} />
-          <Route path="questions" element={<Questions />} />
-          <Route path="settings" element={<Settings />} />
-          <Route path="users" element={<Users />} />
+          <Route path="analytics" element={<AnalyticsDashboard />} />
+          <Route path="users" element={<UserManagement />} />
+          <Route path="questions" element={<QuestionBank />} /> {/* Add this line */}
         </Route>
 
         {/* 404 Route */}

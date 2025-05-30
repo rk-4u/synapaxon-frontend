@@ -1,5 +1,3 @@
-
-// src/pages/Login.jsx
 import React, { useState, useEffect } from 'react';
 import { useNavigate, Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
@@ -14,7 +12,6 @@ function Login() {
   const location = useLocation();
   const { login, googleLogin } = useAuth();
 
-  // Check for error from Google auth callback
   useEffect(() => {
     if (location.state?.error) {
       setError(location.state.error);
@@ -62,61 +59,63 @@ function Login() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 px-4">
-      <div className="max-w-md w-full bg-white p-8 rounded-lg shadow">
-        <h2 className="text-3xl font-semibold text-center mb-6">Login</h2>
+    <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900 px-4">
+      <div className="max-w-md w-full bg-white dark:bg-gray-800 p-8 rounded-lg shadow">
+        <h2 className="text-3xl font-semibold text-center mb-6 text-gray-900 dark:text-white">Login</h2>
 
         {error && (
-          <p className="mb-4 text-red-600 text-center font-medium">{error}</p>
+          <p className="mb-4 text-red-600 dark:text-red-400 text-center font-medium">{error}</p>
         )}
 
         <form onSubmit={handleSubmit} noValidate>
           <div className="mb-5">
-            <label htmlFor="email" className="block text-gray-700 mb-1 font-medium">
+            <label htmlFor="email" className="block text-gray-700 dark:text-gray-300 mb-1 font-medium">
               Email
             </label>
             <input
               id="email"
               type="email"
               value={email}
-              onChange={e => setEmail(e.target.value)}
+              onChange={(e) => setEmail(e.target.value)}
+              autoComplete="email"
               className={`w-full px-4 py-2 border rounded-md focus:outline-none focus:ring-2 ${
                 validationErrors.email
                   ? 'border-red-500 focus:ring-red-500'
-                  : 'border-gray-300 focus:ring-indigo-500'
+                  : 'border-gray-300 dark:border-gray-600 focus:ring-indigo-500 dark:bg-gray-700 dark:text-white'
               }`}
               placeholder="you@example.com"
             />
             {validationErrors.email && (
-              <p className="mt-1 text-sm text-red-600">{validationErrors.email}</p>
+              <p className="mt-1 text-sm text-red-600 dark:text-red-400">{validationErrors.email}</p>
             )}
           </div>
 
           <div className="mb-6">
-            <label htmlFor="password" className="block text-gray-700 mb-1 font-medium">
+            <label htmlFor="password" className="block text-gray-700 dark:text-gray-300 mb-1 font-medium">
               Password
             </label>
             <input
               id="password"
               type="password"
               value={password}
-              onChange={e => setPassword(e.target.value)}
+              onChange={(e) => setPassword(e.target.value)}
+              autoComplete="current-password"
               className={`w-full px-4 py-2 border rounded-md focus:outline-none focus:ring-2 ${
                 validationErrors.password
                   ? 'border-red-500 focus:ring-red-500'
-                  : 'border-gray-300 focus:ring-indigo-500'
+                  : 'border-gray-300 dark:border-gray-600 focus:ring-indigo-500 dark:bg-gray-700 dark:text-white'
               }`}
               placeholder="Your password"
             />
             {validationErrors.password && (
-              <p className="mt-1 text-sm text-red-600">{validationErrors.password}</p>
+              <p className="mt-1 text-sm text-red-600 dark:text-red-400">{validationErrors.password}</p>
             )}
           </div>
 
           <button
             type="submit"
             disabled={loading}
-            className={`w-full py-3 bg-indigo-600 text-white font-semibold rounded-md hover:bg-indigo-700 transition ${
+            className={`w-full py-3 bg-indigo-600 text-white font-semibold rounded-md hover:bg-indigo-700 dark:bg-indigo-500 dark:hover:bg-indigo-600 transition ${
               loading ? 'opacity-60 cursor-not-allowed' : ''
             }`}
           >
@@ -128,7 +127,7 @@ function Login() {
           <button
             onClick={handleGoogleLogin}
             disabled={loading}
-            className={`w-full py-3 bg-red-600 text-white font-semibold rounded-md hover:bg-red-700 transition flex items-center justify-center ${
+            className={`w-full py-3 bg-red-600 text-white font-semibold rounded-md hover:bg-red-700 dark:bg-red-500 dark:hover:bg-red-600 transition flex items-center justify-center ${
               loading ? 'opacity-60 cursor-not-allowed' : ''
             }`}
           >
@@ -142,14 +141,17 @@ function Login() {
           </button>
         </div>
 
-        <p className="mt-6 text-center text-gray-600">
+        <p className="mt-6 text-center text-gray-600 dark:text-gray-300">
           Don't have an account?{' '}
-          <Link to="/register" className="text-indigo-600 hover:underline">
+          <Link to="/register" className="text-indigo-600 dark:text-indigo-400 hover:underline">
             Register
           </Link>
         </p>
         <p className="mt-2 text-center">
-          <Link to="/" className="text-sm text-gray-500 hover:text-gray-700 hover:underline">
+          <Link
+            to="/"
+            className="text-sm text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:underline"
+          >
             &larr; Back to Home
           </Link>
         </p>
