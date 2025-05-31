@@ -22,43 +22,46 @@ import UserManagement from './admin/pages/UserManagement';
 import QuestionBank from './admin/pages/QuestionBank';
 import AIQuestionAssistant from './pages/AIQuestionAssistant';
 import Subscribers from './admin/pages/Subscribers';
-
+import RouteChangeLoader from "./components/RouteChangeLoader";
 
 function App() {
   return (
     <AuthProvider>
-      <Routes>
-        {/* Public Routes */}
-        <Route path="/" element={<LandingPage />} />
-        <Route path="/login" element={<Login />} />
-        <Route path="/register" element={<Register />} />
-        <Route path="/auth/callback" element={<GoogleAuthCallback />} />
+      <RouteChangeLoader>
+        <Routes>
+          {/* Public Routes */}
+          <Route path="/" element={<LandingPage />} />
+          <Route path="/login" element={<Login />} />
+          <Route path="/register" element={<Register />} />
+          <Route path="/auth/callback" element={<GoogleAuthCallback />} />
 
-        {/* Student Dashboard Routes */}
-        <Route path="/dashboard" element={<ProtectedRoute requiredRole="student"><Dashboard /></ProtectedRoute>}>
-          <Route path="starttest" element={<QuestionFilterPage />} />
-          <Route path="history" element={<TestHistoryPage />} />
-          <Route path="create" element={<EnhancedCreateQuestionForm />} />
-          <Route path="my-questions" element={<MyCreatedQuestionsPage />} />
-          <Route path="attempted-questions" element={<AttemptedQuestionsPage />} />
-          <Route path="test-detail/:testId" element={<ProtectedRoute requiredRole="student"><TestDetailPage /></ProtectedRoute>} />
-          <Route path="create/AIQuestionAssistant" element={<ProtectedRoute requiredRole="student"><AIQuestionAssistant /></ProtectedRoute>} />
-        </Route>
-        <Route path="/dashboard/test-runner" element={<ProtectedRoute requiredRole="student"><TestRunnerPage /></ProtectedRoute>} />
+          {/* Student Dashboard Routes */}
+          <Route path="/dashboard" element={<ProtectedRoute requiredRole="student"><Dashboard /></ProtectedRoute>}>
+            <Route path="starttest" element={<QuestionFilterPage />} />
+            <Route path="history" element={<TestHistoryPage />} />
+            <Route path="create" element={<EnhancedCreateQuestionForm />} />
+            <Route path="my-questions" element={<MyCreatedQuestionsPage />} />
+            <Route path="attempted-questions" element={<AttemptedQuestionsPage />} />
+            <Route path="test-detail/:testId" element={<ProtectedRoute requiredRole="student"><TestDetailPage /></ProtectedRoute>} />
+            <Route path="create/AIQuestionAssistant" element={<ProtectedRoute requiredRole="student"><AIQuestionAssistant /></ProtectedRoute>} />
+          </Route>
+          <Route path="/dashboard/test-runner" element={<ProtectedRoute requiredRole="student"><TestRunnerPage /></ProtectedRoute>} />
 
-        {/* Admin Routes */}
-        <Route path="/admin/*" element={<ProtectedRoute requiredRole="admin"><AdminLayout /></ProtectedRoute>}>
-          <Route index element={<AdminDashboard />} />
-          <Route path="analytics" element={<AnalyticsDashboard />} />
-          <Route path="users" element={<UserManagement />} />
-          <Route path="questions" element={<QuestionBank />} /> 
-          <Route path="subscribers" element={<Subscribers />} />
-        </Route>
+          {/* Admin Routes */}
+          <Route path="/admin/*" element={<ProtectedRoute requiredRole="admin"><AdminLayout /></ProtectedRoute>}>
+            <Route index element={<AdminDashboard />} />
+            <Route path="analytics" element={<AnalyticsDashboard />} />
+            <Route path="users" element={<UserManagement />} />
+            <Route path="questions" element={<QuestionBank />} /> 
+            <Route path="subscribers" element={<Subscribers />} />
+          </Route>
 
-        {/* 404 Route */}
-        <Route path="*" element={<Bird404Scene />} />
-      </Routes>
+          {/* 404 Route */}
+          <Route path="*" element={<Bird404Scene />} />
+        </Routes>
+      </RouteChangeLoader>
     </AuthProvider>
+    
   );
 }
 
