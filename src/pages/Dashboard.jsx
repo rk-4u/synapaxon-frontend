@@ -70,7 +70,7 @@ function Dashboard() {
   const renderWelcome = () => (
     <div className="p-8 rounded-lg">
       <h1 className="text-3xl font-bold mb-6 text-gray-900 dark:text-gray-100">Welcome, {currentUser?.name || localStorageName || 'User'} 👋</h1>
-      <p className="text-gray-600 dark:text-gray-300 mb-6">Select an option from the navigation bar to begin.</p>
+      <p className="text-gray-100 dark:text-gray-300 mb-6">Select an option from the navigation bar to begin.</p>
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
         <div 
           onClick={() => handleNavClick('test', '/dashboard/starttest')}
