@@ -385,19 +385,7 @@ const UserManagement = () => {
                   className="mt-1 block w-full border-gray-300 dark:border-gray-600 rounded-md shadow-sm bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400 sm:text-sm"
                 />
               </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                  Role
-                </label>
-                <select
-                  value={editUser.role}
-                  onChange={(e) => setEditUser({ ...editUser, role: e.target.value })}
-                  className="mt-1 block w-full border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 dark:bg-gray-700 dark:text-white sm:text-sm"
-                >
-                  <option value="admin">Admin</option>
-                  <option value="student">Student</option>
-                </select>
-              </div>
+              
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
                   Plan

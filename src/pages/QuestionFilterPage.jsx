@@ -50,11 +50,28 @@ export default function QuestionFilterPage() {
     return {
       ...sq.question,
       _id: sq.question._id,
-      subjects: sq.subjects.map(name => ({
+      subjects: (sq.subjects || []).map(name => ({
         name,
-        topics: sq.topics?.filter(t => (topicsBySubject[name] || []).includes(t)) || []
+        topics: (sq.topics || []).filter(t => (topicsBySubject[name] || []).includes(t))
       })),
+      isCorrect: sq.isCorrect,
+      selectedAnswer: sq.selectedAnswer
     };
+  };
+
+  // Helper function to build query parameters
+  const buildQueryParams = () => {
+    const params = [];
+    if (selectedCategory) params.push(`category=${selectedCategory}`);
+    if (difficulty !== "all") params.push(`difficulty=${difficulty}`);
+    if (selectedSubjects.size > 0) {
+      params.push(`subjects=${Array.from(selectedSubjects).join(',')}`);
+    }
+    if (selectedTopics.size > 0) {
+      const topics = Array.from(selectedTopics.values()).flat();
+      if (topics.length > 0) params.push(`topics=${topics.join(',')}`);
+    }
+    return params.length > 0 ? `?${params.join('&')}` : '';
   };
 
   // Fetch counts for categories, subjects, and topics
@@ -74,10 +91,16 @@ export default function QuestionFilterPage() {
         categoryCountMap[cat.name] = { all: 0, correct: 0, incorrect: 0, unattempted: 0, flagged: 0 };
       });
 
-      // Build API query for history
-      const historyQuery = `/api/student-questions/history?category=${selectedCategory}${
-        difficulty !== "all" ? `&difficulty=${difficulty}` : ""
-      }`;
+      // Build API query for history (without difficulty)
+      let historyQueryParams = [`category=${selectedCategory}`];
+      if (selectedSubjects.size > 0) {
+        historyQueryParams.push(`subjects=${Array.from(selectedSubjects).join(',')}`);
+      }
+      if (selectedTopics.size > 0) {
+        const topics = Array.from(selectedTopics.values()).flat();
+        if (topics.length > 0) historyQueryParams.push(`topics=${topics.join(',')}`);
+      }
+      const historyQuery = `/api/student-questions/history?${historyQueryParams.join('&')}`;
       const historyRes = await axios.get(historyQuery, {
         headers: { Authorization: `Bearer ${token}` },
       });
@@ -91,9 +114,7 @@ export default function QuestionFilterPage() {
         .filter(Boolean);
 
       // Build API query for all questions
-      const questionsQuery = `/api/questions?category=${selectedCategory}&createdBy=me${
-        difficulty !== "all" ? `&difficulty=${difficulty}` : ""
-      }`;
+      const questionsQuery = `/api/questions?category=${selectedCategory}&createdBy=me${difficulty !== "all" ? `&difficulty=${difficulty}` : ""}${selectedSubjects.size > 0 ? `&subjects=${Array.from(selectedSubjects).join(',')}` : ""}${selectedTopics.size > 0 ? `&topics=${Array.from(selectedTopics.values()).flat().join(',')}` : ""}`;
       const allQuestionsRes = await axios.get(questionsQuery, {
         headers: { Authorization: `Bearer ${token}` },
       });
@@ -103,12 +124,6 @@ export default function QuestionFilterPage() {
       }
 
       const allQuestions = allQuestionsRes.data.data || [];
-
-      // Validate subjects against predefined list
-      const validSubjects = subjectsByCategory[selectedCategory] || [];
-      const filteredQuestions = allQuestions.filter(q =>
-        q.subjects.some(s => validSubjects.includes(s.name))
-      );
 
       // Compute status counts
       const correctIds = historyQuestions
@@ -120,26 +135,24 @@ export default function QuestionFilterPage() {
       const flaggedIds = historyQuestions
         .filter((q) => q.selectedAnswer === -1)
         .map((q) => q._id.toString());
-      const allIds = filteredQuestions.map((q) => q._id.toString());
+      const allIds = allQuestions.map((q) => q._id.toString());
       const unattemptedIds = allIds.filter(
         (id) => !correctIds.includes(id) && !incorrectIds.includes(id) && !flaggedIds.includes(id)
       );
 
       categoryCountMap[selectedCategory] = {
-        all: filteredQuestions.length,
+        all: allQuestions.length,
         correct: correctIds.length,
         incorrect: incorrectIds.length,
         unattempted: unattemptedIds.length,
         flagged: flaggedIds.length,
       };
 
-      // Derive subjects from questions
-      const subjects = [...new Set(filteredQuestions.flatMap((q) => q.subjects.map(s => s.name)))].filter((s) =>
-        validSubjects.includes(s)
-      );
+      // Derive subjects and topics counts
+      const subjects = [...new Set(allQuestions.flatMap((q) => q.subjects.map(s => s.name)))];
 
       subjects.forEach((subject) => {
-        const subjectQuestions = filteredQuestions.filter((q) => q.subjects.some(s => s.name === subject));
+        const subjectQuestions = allQuestions.filter((q) => q.subjects.some(s => s.name === subject));
         const subjectHistory = historyQuestions.filter((q) => q.subjects.some(s => s.name === subject));
         const subjectCorrectIds = subjectHistory
           .filter((q) => q.isCorrect)
@@ -169,10 +182,9 @@ export default function QuestionFilterPage() {
             ? subjectUnattemptedIds.length
             : subjectFlaggedIds.length;
 
-        // Derive topics for this subject
         const topics = [...new Set(subjectQuestions.flatMap((q) => 
           q.subjects.find(s => s.name === subject)?.topics || []
-        ))].filter((t) => (topicsBySubject[subject] || []).includes(t));
+        ))];
 
         topics.forEach((topic) => {
           const topicQuestions = subjectQuestions.filter((q) => 
@@ -214,7 +226,7 @@ export default function QuestionFilterPage() {
       setCategoryCounts(categoryCountMap);
       setSubjectCounts(subjectCountMap);
       setTopicCounts(topicCountMap);
-      setTotalQuestions(filteredQuestions.length);
+      setTotalQuestions(allQuestions.length);
     } catch (err) {
       console.error("Error fetching counts:", err);
       setErrorMessage(err.message || "Failed to load question counts. Please try again.");
@@ -224,30 +236,6 @@ export default function QuestionFilterPage() {
       setTotalQuestions(0);
     }
   };
-
-  // Memoized question filtering with stricter subject-topic matching
-  const filteredQuestions = useMemo(() => {
-    let result = questions;
-
-    if (selectedSubjects.size > 0) {
-      result = result.filter((q) =>
-        Array.from(selectedSubjects).some((subject) => q.subjects.some(s => s.name === subject))
-      );
-      if (selectedTopics.size > 0) {
-        result = result.filter((q) => {
-          const subjectTopics = Array.from(selectedTopics.entries()).flatMap(([subject, topics]) =>
-            topics.map((topic) => ({ subject, topic }))
-          );
-          return subjectTopics.every(
-            ({ subject, topic }) => 
-              q.subjects.some(s => s.name === subject && s.topics.includes(topic))
-          );
-        });
-      }
-    }
-
-    return result;
-  }, [questions, selectedSubjects, selectedTopics]);
 
   // Fetch questions based on top-level filters
   const fetchQuestions = async () => {
@@ -260,9 +248,16 @@ export default function QuestionFilterPage() {
       setIsLoading(true);
       let allQuestions = [];
 
-      const baseHistoryQuery = `/api/student-questions/history?category=${selectedCategory}${
-        difficulty !== "all" ? `&difficulty=${difficulty}` : ""
-      }`;
+      // Build base history query without difficulty
+      let baseHistoryQueryParams = [`category=${selectedCategory}`];
+      if (selectedSubjects.size > 0) {
+        baseHistoryQueryParams.push(`subjects=${Array.from(selectedSubjects).join(',')}`);
+      }
+      if (selectedTopics.size > 0) {
+        const topics = Array.from(selectedTopics.values()).flat();
+        if (topics.length > 0) baseHistoryQueryParams.push(`topics=${topics.join(',')}`);
+      }
+      const baseHistoryQuery = `/api/student-questions/history?${baseHistoryQueryParams.join('&')}`;
 
       if (questionStatusFilter === "correct") {
         const res = await axios.get(`${baseHistoryQuery}&isCorrect=true`, {
@@ -271,8 +266,8 @@ export default function QuestionFilterPage() {
         if (!res.data.success) {
           throw new Error(res.data.message || "Failed to fetch correct questions");
         }
-        allQuestions = res.data.data.map(normalizeStudentQuestion);
-        setTotalQuestions(res.data.count || res.data.data.length);
+        allQuestions = res.data.data.map(normalizeStudentQuestion).filter(q => q !== null);
+        setTotalQuestions(res.data.count || allQuestions.length);
       } else if (questionStatusFilter === "incorrect") {
         const res = await axios.get(`${baseHistoryQuery}&isCorrect=false&flagged=false`, {
           headers: { Authorization: `Bearer ${token}` },
@@ -280,8 +275,8 @@ export default function QuestionFilterPage() {
         if (!res.data.success) {
           throw new Error(res.data.message || "Failed to fetch incorrect questions");
         }
-        allQuestions = res.data.data.map(normalizeStudentQuestion);
-        setTotalQuestions(res.data.count || res.data.data.length);
+        allQuestions = res.data.data.map(normalizeStudentQuestion).filter(q => q !== null);
+        setTotalQuestions(res.data.count || allQuestions.length);
       } else if (questionStatusFilter === "flagged") {
         const res = await axios.get(`${baseHistoryQuery}&flagged=true`, {
           headers: { Authorization: `Bearer ${token}` },
@@ -289,13 +284,11 @@ export default function QuestionFilterPage() {
         if (!res.data.success) {
           throw new Error(res.data.message || "Failed to fetch flagged questions");
         }
-        allQuestions = res.data.data.map(normalizeStudentQuestion);
-        setTotalQuestions(res.data.count || res.data.data.length);
+        allQuestions = res.data.data.map(normalizeStudentQuestion).filter(q => q !== null);
+        setTotalQuestions(res.data.count || allQuestions.length);
       } else if (questionStatusFilter === "unattempted") {
         const allQuestionsRes = await axios.get(
-          `/api/questions?category=${selectedCategory}&createdBy=me${
-            difficulty !== "all" ? `&difficulty=${difficulty}` : ""
-          }`,
+          `/api/questions?category=${selectedCategory}&createdBy=me${difficulty !== "all" ? `&difficulty=${difficulty}` : ""}${selectedSubjects.size > 0 ? `&subjects=${Array.from(selectedSubjects).join(',')}` : ""}${selectedTopics.size > 0 ? `&topics=${Array.from(selectedTopics.values()).flat().join(',')}` : ""}`,
           { headers: { Authorization: `Bearer ${token}` } }
         );
         if (!allQuestionsRes.data.success) {
@@ -314,9 +307,7 @@ export default function QuestionFilterPage() {
         setTotalQuestions(allQuestions.length);
       } else {
         const res = await axios.get(
-          `/api/questions?category=${selectedCategory}&createdBy=me${
-            difficulty !== "all" ? `&difficulty=${difficulty}` : ""
-          }`,
+          `/api/questions?category=${selectedCategory}&createdBy=me${difficulty !== "all" ? `&difficulty=${difficulty}` : ""}${selectedSubjects.size > 0 ? `&subjects=${Array.from(selectedSubjects).join(',')}` : ""}${selectedTopics.size > 0 ? `&topics=${Array.from(selectedTopics.values()).flat().join(',')}` : ""}`,
           { headers: { Authorization: `Bearer ${token}` } }
         );
         if (!res.data.success) {
@@ -326,9 +317,7 @@ export default function QuestionFilterPage() {
         setTotalQuestions(res.data.count || allQuestions.length);
       }
 
-      // Filter questions to ensure valid subjects
-      const validSubjects = subjectsByCategory[selectedCategory] || [];
-      setQuestions(allQuestions.filter(q => q.subjects.some(s => validSubjects.includes(s.name))));
+      setQuestions(allQuestions);
     } catch (err) {
       console.error("Error fetching questions:", err);
       setErrorMessage(err.message || "Failed to load questions. Please try again.");
@@ -344,7 +333,7 @@ export default function QuestionFilterPage() {
       fetchCounts();
       fetchQuestions();
     }
-  }, [questionStatusFilter, difficulty, selectedCategory]);
+  }, [questionStatusFilter, difficulty, selectedCategory, selectedSubjects, selectedTopics]);
 
   const toggleSubject = (subject) => {
     setSelectedSubjects((prev) => {
@@ -381,7 +370,7 @@ export default function QuestionFilterPage() {
   };
 
   const startTest = async () => {
-    if (selectedSubjects.size === 0 || filteredQuestions.length === 0) {
+    if (selectedSubjects.size === 0 || questions.length === 0) {
       setErrorMessage("Select at least one subject with available questions");
       return;
     }
@@ -393,9 +382,10 @@ export default function QuestionFilterPage() {
         throw new Error("Authentication token missing. Please log in.");
       }
 
-      const shuffledQuestions = [...filteredQuestions].sort(() => Math.random() - 0.5);
-      const selectedQuestions = shuffledQuestions.slice(0, Math.min(numberOfItems, filteredQuestions.length));
-      const questionIds = selectedQuestions.map((q) => q._id);
+      const shuffledQuestions = [...questions].sort(() => Math.random() - 0.5);
+      const maxQuestions = Math.min(numberOfItems, questions.length, 50);
+      const selectedQuestions = shuffledQuestions.slice(0, maxQuestions);
+      const questionIds = selectedQuestions.map((q) => q._id || q.question._id);
 
       const payload = {
         questionIds,
@@ -585,7 +575,7 @@ export default function QuestionFilterPage() {
                 <h3 className="text-md font-semibold text-gray-900 dark:text-gray-200 mb-3">{activeSubject}</h3>
                 <div className="flex flex-wrap gap-4">
                   {(topicsBySubject[activeSubject] || []).map((topic) => {
-                    const  key = `${activeSubject}||${topic}`;
+                    const key = `${activeSubject}||${topic}`;
                     const count = topicCounts[key] || 0;
                     const isSelected = (selectedTopics.get(activeSubject) || []).includes(topic);
                     return (
@@ -596,7 +586,7 @@ export default function QuestionFilterPage() {
                             ? "bg-blue-600/90 dark:bg-blue-600/80 text-white border-blue-600 dark:border-blue-400"
                             : count === 0
                             ? "bg-gray-200 dark:bg-gray-700 text-gray-400 dark:text-gray-500 border-gray-300 dark:border-gray-600 cursor-not-allowed"
-                            : "bg-white/30 dark:bg-black/10 text-gray-900 dark:text-gray-300 border-white/40 dark:border-gray-700/30 hover:bg-white/40 dark:hover:bg-black/20 cursor-pointer"
+                            : "bg-white/30 dark:bg-black/10 text-gray-900  dark:text-gray-300 border-white/40 dark:border-gray-700/30 hover:bg-white/40 dark:hover:bg-black/20 cursor-pointer"
                         }`}
                       >
                         <input
@@ -638,13 +628,18 @@ export default function QuestionFilterPage() {
         <div className="bg-green-600/30 dark:bg-green-600/20 rounded-lg p-4 mb-8 backdrop-blur-md border border-green-500/40 dark:border-green-500/30">
           <h3 className="text-lg font-semibold text-green-900 dark:text-green-200 mb-2">Available Questions</h3>
           <p className="text-green-900 dark:text-green-300">
-            {filteredQuestions.length} questions available with current filters
+            {questions.length} questions available with current filters
           </p>
           <p className="text-green-900 dark:text-green-300 mt-1">
-            {Math.min(numberOfItems, filteredQuestions.length)} questions selected for the test
-            {numberOfItems > filteredQuestions.length && (
+            {Math.min(numberOfItems, questions.length, 50)} questions selected for the test
+            {numberOfItems > questions.length && (
               <span className="text-orange-600 dark:text-orange-400 ml-2">
-                (Requested {numberOfItems}, but only {filteredQuestions.length} available)
+                (Requested {numberOfItems}, but only {questions.length} available)
+              </span>
+            )}
+            {numberOfItems > 50 && (
+              <span className="text-orange-600 dark:text-orange-400 ml-2">
+                (Limited to 50 questions maximum)
               </span>
             )}
           </p>
@@ -690,14 +685,19 @@ export default function QuestionFilterPage() {
               <input
                 type="number"
                 value={numberOfItems}
-                onChange={(e) => setNumberOfItems(parseInt(e.target.value) || 1)}
+                onChange={(e) => setNumberOfItems(Math.min(parseInt(e.target.value) || 1, 50))}
                 className="border border-white/40 dark:border-gray-700/30 rounded px-3 py-2 w-24 bg-white/30 dark:bg-black/10 backdrop-blur-sm text-gray-900 dark:text-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-600"
                 min="1"
-                max={filteredQuestions.length || 150}
+                max="50"
               />
-              {filteredQuestions.length > 0 && numberOfItems > filteredQuestions.length && (
+              {questions.length > 0 && numberOfItems > questions.length && (
                 <p className="text-sm text-orange-600 dark:text-orange-400 mt-1">
-                  Max available: {filteredQuestions.length}
+                  Max available: {questions.length}
+                </p>
+              )}
+              {numberOfItems > 50 && (
+                <p className="text-sm text-orange-600 dark:text-orange-400 mt-1">
+                  Max allowed: 50
                 </p>
               )}
             </div>
@@ -714,16 +714,16 @@ export default function QuestionFilterPage() {
 
           <button
             onClick={startTest}
-            disabled={isLoading || selectedSubjects.size === 0 || filteredQuestions.length === 0}
+            disabled={isLoading || selectedSubjects.size === 0 || questions.length === 0}
             className={`px-8 py-2 rounded backdrop-blur-sm border border-white/40 dark:border-gray-700/20 ${
-              selectedSubjects.size > 0 && filteredQuestions.length > 0
+              selectedSubjects.size > 0 && questions.length > 0
                 ? "bg-green-600/90 dark:bg-green-600/80 hover:bg-green-700/95 dark:hover:bg-green-500/90 text-white"
                 : "bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-400 cursor-not-allowed"
             }`}
           >
             {isLoading
               ? "Starting..."
-              : `Start Test (${Math.min(numberOfItems, filteredQuestions.length)} questions)`}
+              : `Start Test (${Math.min(numberOfItems, questions.length, 50)} questions)`}
           </button>
         </div>
       </div>

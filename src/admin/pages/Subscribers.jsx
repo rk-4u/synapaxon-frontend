@@ -9,12 +9,11 @@ function Subscribers() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
-  const [filters, setFilters] = useState({
-    plan: 'all'
-  });
+  const [filters, setFilters] = useState({ plan: 'all' });
   const [selectedUser, setSelectedUser] = useState(null);
   const [showProfile, setShowProfile] = useState(false);
   const [userDetails, setUserDetails] = useState(null);
+  const [message, setMessage] = useState(null);
 
   const fetchUsers = async () => {
     try {
@@ -31,7 +30,6 @@ function Subscribers() {
         });
       setUsers(sortedUsers);
       setFilteredUsers(sortedUsers);
-      console.log(sortedUsers)
     } catch (err) {
       const errorMessage =
         err.response?.status === 403
@@ -89,26 +87,42 @@ function Subscribers() {
   const handleUserAction = async (action, userId) => {
     try {
       setLoading(true);
-      switch (action) {
-        case 'upgrade':
-          await axios.put(`/api/auth/users/${userId}/upgrade`);
-          break;
-        case 'downgrade':
-          await axios.put(`/api/auth/users/${userId}/downgrade`);
-          break;
-        case 'refund':
-          await axios.post(`/api/auth/users/${userId}/refund`);
-          break;
-        case 'revoke':
-          await axios.put(`/api/auth/users/${userId}/revoke`);
-          break;
-        default:
-          break;
+      let newPlan;
+      if (action === 'upgrade' || action === 'downgrade') {
+        const currentPlan = userDetails.plan;
+        if (action === 'upgrade') {
+          if (currentPlan === 'free') newPlan = 'pro';
+          else if (currentPlan === 'pro') newPlan = 'premium';
+          else {
+            setMessage({ type: 'error', text: 'Cannot upgrade from premium' });
+            return;
+          }
+        } else if (action === 'downgrade') {
+          if (currentPlan === 'premium') newPlan = 'pro';
+          else if (currentPlan === 'pro') newPlan = 'free';
+          else {
+            setMessage({ type: 'error', text: 'Cannot downgrade from free' });
+            return;
+          }
+        }
+        await axios.put(`/api/auth/users/${userId}`, {
+          plan: newPlan,
+          role: userDetails.role
+        });
+        setMessage({ type: 'success', text: `User ${action}d to ${newPlan} successfully` });
+      } else if (action === 'refund') {
+        await axios.post(`/api/auth/users/${userId}/refund`);
+        setMessage({ type: 'success', text: 'Refund processed successfully' });
+      } else if (action === 'revoke') {
+        await axios.put(`/api/auth/users/${userId}/revoke`);
+        setMessage({ type: 'success', text: 'Access revoked successfully' });
       }
       await fetchUserDetails(userId);
       await fetchUsers();
+      setTimeout(() => setMessage(null), 3000);
     } catch (err) {
-      setError(err.response?.data?.message || 'Failed to perform action');
+      setMessage({ type: 'error', text: err.response?.data?.message || 'Failed to perform action' });
+      setTimeout(() => setMessage(null), 3000);
     } finally {
       setLoading(false);
     }
@@ -117,6 +131,7 @@ function Subscribers() {
   const handleProfileClick = async (user) => {
     setSelectedUser(user);
     setShowProfile(true);
+    setMessage(null);
     await fetchUserDetails(user.id);
   };
 
@@ -311,6 +326,7 @@ function Subscribers() {
                   setShowProfile(false);
                   setSelectedUser(null);
                   setUserDetails(null);
+                  setMessage(null);
                 }}
                 className="text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200"
               >
@@ -319,6 +335,13 @@ function Subscribers() {
                 </svg>
               </button>
             </div>
+
+            {/* Message Display */}
+            {message && (
+              <div className={`p-2 rounded mb-4 ${message.type === 'success' ? 'bg-green-100 text-green-800 dark:bg-green-800 dark:text-green-100' : 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200'}`}>
+                {message.text}
+              </div>
+            )}
 
             {/* User Details */}
             <div className="mb-6">
@@ -360,12 +383,20 @@ function Subscribers() {
             {/* Plan Management */}
             <div className="space-y-3">
               {userDetails.plan === 'free' && (
-                <button
-                  onClick={() => handleUserAction('upgrade', userDetails.id)}
-                  className="w-full bg-indigo-500 dark:bg-indigo-600 text-white px-4 py-2 rounded-md hover:bg-indigo-600 dark:hover:bg-indigo-700 transition-colors"
-                >
-                  Upgrade to Pro
-                </button>
+                <>
+                  <button
+                    onClick={() => handleUserAction('upgrade', userDetails.id)}
+                    className="w-full bg-indigo-500 dark:bg-indigo-600 text-white px-4 py-2 rounded-md hover:bg-indigo-600 dark:hover:bg-indigo-700 transition-colors"
+                  >
+                    Upgrade to Pro
+                  </button>
+                  <button
+                    onClick={() => handleUserAction('upgrade', userDetails.id)}
+                    className="w-full bg-indigo-500 dark:bg-indigo-600 text-white px-4 py-2 rounded-md hover:bg-indigo-600 dark:hover:bg-indigo-700 transition-colors"
+                  >
+                    Upgrade to Premium
+                  </button>
+                </>
               )}
               {userDetails.plan === 'pro' && (
                 <>
@@ -384,12 +415,20 @@ function Subscribers() {
                 </>
               )}
               {userDetails.plan === 'premium' && (
-                <button
-                  onClick={() => handleUserAction('downgrade', userDetails.id)}
-                  className="w-full bg-blue-500 dark:bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-600 dark:hover:bg-blue-700 transition-colors"
-                >
-                  Downgrade to Pro
-                </button>
+                <>
+                  <button
+                    onClick={() => handleUserAction('downgrade', userDetails.id)}
+                    className="w-full bg-blue-500 dark:bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-600 dark:hover:bg-blue-700 transition-colors"
+                  >
+                    Downgrade to Pro
+                  </button>
+                  <button
+                    onClick={() => handleUserAction('downgrade', userDetails.id)}
+                    className="w-full bg-blue-500 dark:bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-600 dark:hover:bg-blue-700 transition-colors"
+                  >
+                    Downgrade to Free
+                  </button>
+                </>
               )}
             </div>
 
