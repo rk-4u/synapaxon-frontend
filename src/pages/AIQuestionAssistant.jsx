@@ -1434,41 +1434,6 @@ const AIQuestionAssistant = () => {
               </div>
             )}
 
-            <div className="mb-8 tag-input-container">
-              <label className="block text-gray-700 dark:text-gray-300 font-medium mb-2">
-                Tags (Optional)
-              </label>
-              <div className="flex gap-2 mb-3">
-                {['step1', 'step2', 'step3'].map(step => (
-                  <button
-                    key={step}
-                    type="button"
-                    onClick={() => handleAddPredefinedTag(step)}
-                    className="px-4 py-2 bg-blue-600 dark:bg-blue-500 text-white rounded hover:bg-blue-700 dark:hover:bg-blue-400"
-                  >
-                    {step}
-                  </button>
-                ))}
-              </div>
-              <div className="flex flex-wrap gap-2">
-                {formData.tags.map((tag, index) => (
-                  <div 
-                    key={index} 
-                    className="flex items-center px-3 py-1 bg-blue-100 dark:bg-blue-900/50 text-blue-800 dark:text-blue-300 rounded-full text-sm"
-                  >
-                    {tag}
-                    <button 
-                      type="button" 
-                      onClick={() => handleRemoveTag(tag)} 
-                      className="ml-2 text-gray-600 dark:text-gray-300 hover:text-red-600 dark:hover:text-red-400"
-                    >
-                      <X size={14} />
-                    </button>
-                  </div>
-                ))}
-              </div>
-            </div>
-
             <div className="mb-8">
               <label 
                 className="block text-gray-700 dark:text-gray-300 font-medium mb-2" 

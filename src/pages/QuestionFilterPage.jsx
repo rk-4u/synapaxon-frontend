@@ -333,7 +333,7 @@ export default function QuestionFilterPage() {
       fetchCounts();
       fetchQuestions();
     }
-  }, [questionStatusFilter, difficulty, selectedCategory, selectedSubjects, selectedTopics]);
+  }, [questionStatusFilter, difficulty, selectedCategory]);
 
   const toggleSubject = (subject) => {
     setSelectedSubjects((prev) => {
