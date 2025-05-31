@@ -1,10 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { FiHome, FiPlayCircle, FiClock, FiEdit, FiBookOpen, FiCheckCircle } from 'react-icons/fi';
-import { FiTrendingUp, FiLayers, FiActivity, FiFileText } from 'react-icons/fi';
+import { FiFileText } from 'react-icons/fi';
 import { useAuth } from '../contexts/AuthContext';
 import { useNavigate, Outlet, useLocation } from 'react-router-dom';
-import TestDetailPage from './TestDetailPage';
-import AIQuestionAssistant from './AIQuestionAssistant';
+import MoleculeScene from '../components/MoleculeScene'; // Adjust path if necessary
 import AIChatBot from './AIChatBot';
 
 function Dashboard() {
@@ -69,39 +68,13 @@ function Dashboard() {
   };
 
   const renderWelcome = () => (
-    <div className="bg-white dark:bg-gray-800 p-8 rounded-lg shadow-md">
+    <div className="p-8 rounded-lg">
       <h1 className="text-3xl font-bold mb-6 text-gray-900 dark:text-gray-100">Welcome, {currentUser?.name || localStorageName || 'User'} 👋</h1>
       <p className="text-gray-600 dark:text-gray-300 mb-6">Select an option from the navigation bar to begin.</p>
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
         <div 
           onClick={() => handleNavClick('test', '/dashboard/starttest')}
-          className="bg-gradient-to-br from-green-200 to-green-400 dark:from-green-700 dark:to-green-900 p-6 rounded-2xl shadow-md hover:shadow-xl transform hover:scale-105 transition duration-300 cursor-pointer"
-        >
-          <FiTrendingUp className="text-3xl text-green-800 dark:text-green-300 mb-2" />
-          <h2 className="text-2xl font-bold text-green-900 dark:text-green-200 mb-1">Step 1</h2>
-          <p className="text-green-800 dark:text-green-300 text-sm">Start your journey with core fundamentals</p>
-        </div>
-        <div 
-          onClick={() => handleNavClick('test', '/dashboard/starttest')}
-          className="bg-gradient-to-br from-blue-200 to-blue-400 dark:from-blue-700 dark:to-blue-900 p-6 rounded-2xl shadow-md hover:shadow-xl transform hover:scale-105 transition duration-300 cursor-pointer"
-        >
-          <FiLayers className="text-3xl text-blue-800 dark:text-blue-300 mb-2" />
-          <h2 className="text-2xl font-bold text-blue-900 dark:text-blue-200 mb-1">Step 2</h2>
-          <p className="text-blue-800 dark:text-blue-300 text-sm">Build deeper understanding with systems-based questions</p>
-        </div>
-        <div 
-          onClick={() => handleNavClick('test', '/dashboard/starttest')}
-          className="bg-gradient-to-br from-purple-200 to-purple-400 dark:from-purple-700 dark:to-purple-900 p-6 rounded-2xl shadow-md hover:shadow-xl transform hover:scale-105 transition duration-300 cursor-pointer"
-        >
-          <FiActivity className="text-3xl text-purple-800 dark:text-purple-300 mb-2" />
-          <h2 className="text-2xl font-bold text-purple-900 dark:text-purple-200 mb-1">Step 3</h2>
-          <p className="text-purple-800 dark:text-purple-300 text-sm">Tackle real-world clinical cases and scenarios</p>
-        </div>
-      </div>
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-        <div 
-          onClick={() => handleNavClick('test', '/dashboard/starttest')}
-          className="bg-gradient-to-br from-teal-200 to-teal-400 dark:from-teal-700 dark:to-teal-900 p-6 rounded-2xl shadow-md hover:shadow-xl transform hover:scale-105 transition duration-300 cursor-pointer"
+          className="bg-white/30 dark:bg-black/30 backdrop-blur-md p-6 rounded-2xl shadow-md hover:shadow-xl transform hover:scale-105 transition duration-300 cursor-pointer"
         >
           <FiFileText className="text-3xl text-teal-800 dark:text-teal-300 mb-2" />
           <h2 className="text-2xl font-bold text-teal-900 dark:text-teal-200 mb-1">Take a Test</h2>
@@ -109,7 +82,7 @@ function Dashboard() {
         </div>
         <div 
           onClick={() => handleNavClick('history', '/dashboard/history')}
-          className="bg-gradient-to-br from-yellow-200 to-yellow-400 dark:from-yellow-700 dark:to-yellow-900 p-6 rounded-2xl shadow-md hover:shadow-xl transform hover:scale-105 transition duration-300 cursor-pointer"
+          className="bg-white/30 dark:bg-black/30 backdrop-blur-md p-6 rounded-2xl shadow-md hover:shadow-xl transform hover:scale-105 transition duration-300 cursor-pointer"
         >
           <FiClock className="text-3xl text-yellow-800 dark:text-yellow-300 mb-2" />
           <h2 className="text-2xl font-bold text-yellow-900 dark:text-yellow-200 mb-1">Test History</h2>
@@ -117,7 +90,7 @@ function Dashboard() {
         </div>
         <div 
           onClick={() => handleNavClick('create', '/dashboard/create')}
-          className="bg-gradient-to-br from-pink-200 to-pink-400 dark:from-pink-700 dark:to-pink-900 p-6 rounded-2xl shadow-md hover:shadow-xl transform hover:scale-105 transition duration-300 cursor-pointer"
+          className="bg-white/30 dark:bg-black/30 backdrop-blur-md p-6 rounded-2xl shadow-md hover:shadow-xl transform hover:scale-105 transition duration-300 cursor-pointer"
         >
           <FiEdit className="text-3xl text-pink-800 dark:text-pink-300 mb-2" />
           <h2 className="text-2xl font-bold text-pink-900 dark:text-pink-200 mb-1">Create Question</h2>
@@ -127,7 +100,7 @@ function Dashboard() {
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
         <div 
           onClick={() => handleNavClick('my-questions', '/dashboard/my-questions')}
-          className="bg-gradient-to-br from-indigo-200 to-indigo-400 dark:from-indigo-700 dark:to-indigo-900 p-8 rounded-2xl shadow-md hover:shadow-xl transform hover:scale-105 transition duration-300 cursor-pointer"
+          className="bg-white/30 dark:bg-black/30 backdrop-blur-md p-8 rounded-2xl shadow-md hover:shadow-xl transform hover:scale-105 transition duration-300 cursor-pointer"
         >
           <FiBookOpen className="text-4xl text-indigo-800 dark:text-indigo-300 mb-3" />
           <h2 className="text-2xl font-bold text-indigo-900 dark:text-indigo-200 mb-2">My Created Questions</h2>
@@ -135,7 +108,7 @@ function Dashboard() {
         </div>
         <div 
           onClick={() => handleNavClick('attempted-questions', '/dashboard/attempted-questions')}
-          className="bg-gradient-to-br from-orange-200 to-orange-400 dark:from-orange-700 dark:to-orange-900 p-8 rounded-2xl shadow-md hover:shadow-xl transform hover:scale-105 transition duration-300 cursor-pointer"
+          className="bg-white/30 dark:bg-black/30 backdrop-blur-md p-8 rounded-2xl shadow-md hover:shadow-xl transform hover:scale-105 transition duration-300 cursor-pointer"
         >
           <FiCheckCircle className="text-4xl text-orange-800 dark:text-orange-300 mb-3" />
           <h2 className="text-2xl font-bold text-orange-900 dark:text-orange-200 mb-2">My Attempted Questions</h2>
@@ -148,8 +121,14 @@ function Dashboard() {
   const shouldShowWelcome = location.pathname === '/dashboard' || location.pathname === '/dashboard/';
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
-      <header className="bg-blue-900 dark:bg-blue-950 text-white shadow-md">
+    <div className="relative min-h-screen">
+      {/* Three.js Scene as Background */}
+      <div className="fixed inset-0 z-[-1]">
+        <MoleculeScene />
+      </div>
+
+      {/* Navigation Bar - Solid, No Glassy Effect */}
+      <header className="relative z-10 bg-blue-900 dark:bg-blue-950 text-white shadow-md">
         <div className="container mx-auto px-4 py-4">
           <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
             <h1 className="text-3xl font-extrabold tracking-wide">Synapaxon</h1>
@@ -248,9 +227,14 @@ function Dashboard() {
           </div>
         </div>
       </header>
-      <div className="container mx-auto px-4 py-8">
-        {shouldShowWelcome ? renderWelcome() : <Outlet />}
-      </div>
+
+      {/* Main Content with Glassy Effect */}
+      <main className="container mx-auto px-4 py-8 relative z-10">
+        <div className="bg-white/30 dark:bg-black/30 backdrop-blur-md p-8 rounded-lg">
+          {shouldShowWelcome ? renderWelcome() : <Outlet />}
+        </div>
+      </main>
+
       <AIChatBot />
     </div>
   );

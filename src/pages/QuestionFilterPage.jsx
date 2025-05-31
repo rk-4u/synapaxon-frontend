@@ -14,15 +14,25 @@ export default function QuestionFilterPage() {
   const [topicCounts, setTopicCounts] = useState({});
   const [difficulty, setDifficulty] = useState("all");
   const [useTimer, setUseTimer] = useState(false);
-  const [testDuration, setTestDuration] = useState("90"); // Made configurable
+  const [testDuration, setTestDuration] = useState("90");
   const [numberOfItems, setNumberOfItems] = useState(5);
   const [isLoading, setIsLoading] = useState(false);
   const [questions, setQuestions] = useState([]);
   const [activeSubject, setActiveSubject] = useState(null);
   const [questionStatusFilter, setQuestionStatusFilter] = useState("all");
   const [totalQuestions, setTotalQuestions] = useState(0);
-  const [errorMessage, setErrorMessage] = useState(""); // Added for better error feedback
+  const [errorMessage, setErrorMessage] = useState("");
   const token = localStorage.getItem("token");
+  const [theme, setTheme] = useState(localStorage.getItem("theme") || "light");
+
+  useEffect(() => {
+    const handleStorageChange = () => {
+      setTheme(localStorage.getItem("theme") || "light");
+    };
+    window.addEventListener("storage", handleStorageChange);
+    document.documentElement.classList.toggle("dark", theme === "dark");
+    return () => window.removeEventListener("storage", handleStorageChange);
+  }, [theme]);
 
   // Reset subjects and topics when top-level filters change
   useEffect(() => {
@@ -32,22 +42,20 @@ export default function QuestionFilterPage() {
   }, [questionStatusFilter, difficulty, selectedCategory]);
 
   // Normalize StudentQuestion subjects to match Question schema
-    const normalizeStudentQuestion = (sq) => {
-      if (!sq || !sq.question) {
-        console.warn("Skipping invalid student question:", sq);
-        return null;
-      }
-
-      return {
-        ...sq.question,
-        _id: sq.question._id,
-        subjects: sq.subjects.map(name => ({
-          name,
-          topics: sq.topics?.filter(t => (topicsBySubject[name] || []).includes(t)) || []
-        })),
-      };
+  const normalizeStudentQuestion = (sq) => {
+    if (!sq || !sq.question) {
+      console.warn("Skipping invalid student question:", sq);
+      return null;
+    }
+    return {
+      ...sq.question,
+      _id: sq.question._id,
+      subjects: sq.subjects.map(name => ({
+        name,
+        topics: sq.topics?.filter(t => (topicsBySubject[name] || []).includes(t)) || []
+      })),
     };
-
+  };
 
   // Fetch counts for categories, subjects, and topics
   const fetchCounts = async () => {
@@ -79,9 +87,8 @@ export default function QuestionFilterPage() {
       }
 
       const historyQuestions = (historyRes.data.data || [])
-      .map(normalizeStudentQuestion)
-      .filter(Boolean);
-
+        .map(normalizeStudentQuestion)
+        .filter(Boolean);
 
       // Build API query for all questions
       const questionsQuery = `/api/questions?category=${selectedCategory}&createdBy=me${
@@ -394,7 +401,7 @@ export default function QuestionFilterPage() {
         questionIds,
         difficulty: difficulty === "all" ? undefined : difficulty,
         count: questionIds.length,
-        duration: useTimer ? parseInt(testDuration) : 0, // Include duration in payload
+        duration: useTimer ? parseInt(testDuration) : 0,
       };
 
       const res = await axios.post("/api/tests", payload, {
@@ -421,10 +428,7 @@ export default function QuestionFilterPage() {
           category: selectedCategory,
           subjects: Array.from(selectedSubjects),
           topics: Array.from(selectedTopics.entries()).reduce(
-            (acc, [subject, topics]) => ({
-              ...acc,
-              [subject]: topics,
-            }),
+            (acc, [subject, topics]) => ({ ...acc, [subject]: topics }),
             {}
           ),
           difficulty,
@@ -443,23 +447,23 @@ export default function QuestionFilterPage() {
   };
 
   return (
-    <div className="flex flex-col min-h-screen bg-gray-50">
+    <div className="flex flex-col min-h-screen bg-white/10 dark:bg-black/10 backdrop-blur-lg">
       {errorMessage && (
-        <div className="bg-red-100 text-red-700 p-4 m-4 rounded">
+        <div className="bg-red-600/30 dark:bg-red-600/20 border border-red-500/40 dark:border-red-500/30 text-red-900 dark:text-red-200 p-4 m-4 rounded-lg backdrop-blur-md">
           {errorMessage}
           {errorMessage.includes("token") && (
             <button
               onClick={() => navigate("/login")}
-              className="ml-2 underline text-blue-600"
+              className="ml-2 underline text-blue-600 dark:text-blue-400"
             >
               Log in
             </button>
           )}
         </div>
       )}
-      <div className="flex items-center p-4 bg-white shadow">
+      <div className="flex items-center p-4 bg-white/20 dark:bg-black/20 backdrop-blur-sm border-b border-white/40 dark:border-gray-800/20">
         <div className="flex-1">
-          <h3 className="font-medium text-gray-700 mb-2">Question Status</h3>
+          <h3 className="font-medium text-gray-900 dark:text-gray-200 mb-2">Question Status</h3>
           <div className="flex gap-2">
             {[
               { value: "all", label: `All (Q${categoryCounts[selectedCategory]?.all || 0})` },
@@ -474,9 +478,9 @@ export default function QuestionFilterPage() {
                 onClick={() => setQuestionStatusFilter(filter.value)}
                 className={`flex-1 py-2 text-center font-medium transition-colors rounded ${
                   questionStatusFilter === filter.value
-                    ? "bg-blue-500 text-white"
-                    : "bg-blue-100 text-blue-800 hover:bg-blue-200"
-                }`}
+                    ? "bg-blue-600/90 dark:bg-blue-600/80 text-white"
+                    : "bg-white/30 dark:bg-black/10 text-gray-900 dark:text-gray-300 hover:bg-white/40 dark:hover:bg-black/20"
+                } backdrop-blur-sm border border-white/40 dark:border-gray-700/30`}
               >
                 {filter.label}
               </button>
@@ -484,11 +488,11 @@ export default function QuestionFilterPage() {
           </div>
         </div>
         <div className="flex-1 ml-4">
-          <h3 className="font-medium text-gray-700 mb-2">Difficulty</h3>
+          <h3 className="font-medium text-gray-900 dark:text-gray-200 mb-2">Difficulty</h3>
           <select
             value={difficulty}
             onChange={(e) => setDifficulty(e.target.value)}
-            className="border border-gray-300 rounded px-3 py-2 w-full"
+            className="w-full px-3 py-2 border border-white/40 dark:border-gray-700/30 rounded-md bg-white/30 dark:bg-black/10 backdrop-blur-sm text-gray-900 dark:text-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-600"
           >
             <option value="all">All</option>
             <option value="easy">Easy</option>
@@ -500,7 +504,7 @@ export default function QuestionFilterPage() {
 
       <div className="p-8">
         <div className="mb-6">
-          <h2 className="text-xl font-bold text-gray-800 mb-4">Select Category</h2>
+          <h2 className="text-xl font-bold text-gray-900 dark:text-gray-200 mb-4">Select Category</h2>
           <div className="flex gap-2">
             {categories.map((cat) => (
               <button
@@ -509,9 +513,9 @@ export default function QuestionFilterPage() {
                 onClick={() => setSelectedCategory(cat.name)}
                 className={`flex-1 py-3 text-center font-medium transition-colors rounded ${
                   selectedCategory === cat.name
-                    ? "bg-blue-500 text-white"
-                    : "bg-blue-100 text-blue-800 hover:bg-blue-200"
-                }`}
+                    ? "bg-blue-600/90 dark:bg-blue-600/80 text-white"
+                    : "bg-white/30 dark:bg-black/10 text-gray-900 dark:text-gray-300 hover:bg-white/40 dark:hover:bg-black/20"
+                } backdrop-blur-sm border border-white/40 dark:border-gray-700/30`}
               >
                 {cat.name} (Q{categoryCounts[cat.name]?.[questionStatusFilter] || 0})
               </button>
@@ -520,8 +524,8 @@ export default function QuestionFilterPage() {
         </div>
 
         {selectedCategory && (
-          <div className="bg-blue-50 rounded-lg p-6 mb-8">
-            <h2 className="text-xl font-bold text-blue-600 mb-4">Select Subjects</h2>
+          <div className="bg-white/20 dark:bg-black/20 rounded-lg p-6 mb-8 backdrop-blur-sm border border-white/40 dark:border-gray-800/20">
+            <h2 className="text-xl font-bold text-blue-600 dark:text-blue-400 mb-4">Select Subjects</h2>
             <div className="flex flex-wrap gap-4">
               {(subjectsByCategory[selectedCategory] || []).map((subject) => {
                 const count = subjectCounts[subject] || 0;
@@ -529,12 +533,12 @@ export default function QuestionFilterPage() {
                 return (
                   <label
                     key={subject}
-                    className={`px-4 py-2 rounded border select-none flex items-center space-x-2 ${
+                    className={`px-4 py-2 rounded border select-none flex items-center space-x-2 backdrop-blur-sm ${
                       isSelected
-                        ? "bg-blue-600 text-white border-blue-600"
+                        ? "bg-blue-600/90 dark:bg-blue-600/80 text-white border-blue-600 dark:border-blue-400"
                         : count === 0
-                        ? "bg-gray-200 text-gray-400 border-gray-300 cursor-not-allowed"
-                        : "bg-white text-blue-600 border-blue-600 hover:bg-blue-100 cursor-pointer"
+                        ? "bg-gray-200 dark:bg-gray-700 text-gray-400 dark:text-gray-500 border-gray-300 dark:border-gray-600 cursor-not-allowed"
+                        : "bg-white/30 dark:bg-black/10 text-gray-900 dark:text-gray-300 border-white/40 dark:border-gray-700/30 hover:bg-white/40 dark:hover:bg-black/20 cursor-pointer"
                     }`}
                   >
                     <input
@@ -545,7 +549,7 @@ export default function QuestionFilterPage() {
                       className="hidden"
                     />
                     <span>{subject}</span>
-                    <span className={`${count > 0 ? "text-green-600" : "text-red-500"} font-bold`}>
+                    <span className={`${count > 0 ? "text-green-600 dark:text-green-400" : "text-red-500 dark:text-red-400"} font-bold`}>
                       Q{count}
                     </span>
                   </label>
@@ -556,9 +560,9 @@ export default function QuestionFilterPage() {
         )}
 
         {selectedSubjects.size > 0 && (
-          <div className="bg-blue-50 rounded-lg p-6 mb-8">
-            <h2 className="text-xl font-bold text-blue-600 mb-4">Select Topics (Optional)</h2>
-            <p className="text-sm text-gray-600 mb-4">
+          <div className="bg-white/20 dark:bg-black/20 rounded-lg p-6 mb-8 backdrop-blur-sm border border-white/40 dark:border-gray-800/20">
+            <h2 className="text-xl font-bold text-blue-600 dark:text-blue-400 mb-4">Select Topics (Optional)</h2>
+            <p className="text-sm text-gray-700 dark:text-gray-300 mb-4">
               Leave topics unselected to include all topics from selected subjects
             </p>
             <div className="flex gap-4 mb-4">
@@ -566,10 +570,10 @@ export default function QuestionFilterPage() {
                 <button
                   key={subject}
                   onClick={() => setActiveSubject(subject)}
-                  className={`px-4 py-2 rounded ${
+                  className={`px-4 py-2 rounded backdrop-blur-sm border border-white/40 dark:border-gray-700/30 ${
                     activeSubject === subject
-                      ? "bg-blue-600 text-white"
-                      : "bg-blue-100 text-blue-800 hover:bg-blue-200"
+                      ? "bg-blue-600/90 dark:bg-blue-600/80 text-white"
+                      : "bg-white/30 dark:bg-black/10 text-gray-900 dark:text-gray-300 hover:bg-white/40 dark:hover:bg-black/20"
                   }`}
                 >
                   {subject}
@@ -578,21 +582,21 @@ export default function QuestionFilterPage() {
             </div>
             {activeSubject && (
               <div className="ml-4">
-                <h3 className="text-md font-semibold text-gray-700 mb-3">{activeSubject}</h3>
+                <h3 className="text-md font-semibold text-gray-900 dark:text-gray-200 mb-3">{activeSubject}</h3>
                 <div className="flex flex-wrap gap-4">
                   {(topicsBySubject[activeSubject] || []).map((topic) => {
-                    const key = `${activeSubject}||${topic}`;
+                    const  key = `${activeSubject}||${topic}`;
                     const count = topicCounts[key] || 0;
                     const isSelected = (selectedTopics.get(activeSubject) || []).includes(topic);
                     return (
                       <label
                         key={key}
-                        className={`px-4 py-2 rounded border select-none flex items-center space-x-2 ${
+                        className={`px-4 py-2 rounded border select-none flex items-center space-x-2 backdrop-blur-sm ${
                           isSelected
-                            ? "bg-blue-600 text-white border-blue-600"
+                            ? "bg-blue-600/90 dark:bg-blue-600/80 text-white border-blue-600 dark:border-blue-400"
                             : count === 0
-                            ? "bg-gray-200 text-gray-400 border-gray-300 cursor-not-allowed"
-                            : "bg-white text-gray-700 border-gray-300 hover:bg-blue-100 cursor-pointer"
+                            ? "bg-gray-200 dark:bg-gray-700 text-gray-400 dark:text-gray-500 border-gray-300 dark:border-gray-600 cursor-not-allowed"
+                            : "bg-white/30 dark:bg-black/10 text-gray-900 dark:text-gray-300 border-white/40 dark:border-gray-700/30 hover:bg-white/40 dark:hover:bg-black/20 cursor-pointer"
                         }`}
                       >
                         <input
@@ -603,7 +607,7 @@ export default function QuestionFilterPage() {
                           className="hidden"
                         />
                         <span>{topic}</span>
-                        <span className={`${count > 0 ? "text-green-600" : "text-red-500"} font-bold`}>
+                        <span className={`${count > 0 ? "text-green-600 dark:text-green-400" : "text-red-500 dark:text-red-400"} font-bold`}>
                           Q{count}
                         </span>
                       </label>
@@ -613,12 +617,12 @@ export default function QuestionFilterPage() {
               </div>
             )}
             <div className="mt-6">
-              <h3 className="text-md font-semibold text-gray-700 mb-3">Selected Filters</h3>
+              <h3 className="text-md font-semibold text-gray-900 dark:text-gray-200 mb-3">Selected Filters</h3>
               <div className="flex flex-wrap gap-2">
                 {Array.from(selectedSubjects).map((subject) => (
                   <span
                     key={subject}
-                    className="px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-sm"
+                    className="px-3 py-1 bg-blue-600/30 dark:bg-blue-600/20 text-gray-900 dark:text-gray-300 rounded-full text-sm border border-blue-500/40 dark:border-blue-500/30"
                   >
                     {subject}
                     {selectedTopics.get(subject)?.length > 0
@@ -631,15 +635,15 @@ export default function QuestionFilterPage() {
           </div>
         )}
 
-        <div className="bg-green-50 rounded-lg p-4 mb-8">
-          <h3 className="text-lg font-semibold text-green-700 mb-2">Available Questions</h3>
-          <p className="text-green-600">
+        <div className="bg-green-600/30 dark:bg-green-600/20 rounded-lg p-4 mb-8 backdrop-blur-md border border-green-500/40 dark:border-green-500/30">
+          <h3 className="text-lg font-semibold text-green-900 dark:text-green-200 mb-2">Available Questions</h3>
+          <p className="text-green-900 dark:text-green-300">
             {filteredQuestions.length} questions available with current filters
           </p>
-          <p className="text-green-600 mt-1">
+          <p className="text-green-900 dark:text-green-300 mt-1">
             {Math.min(numberOfItems, filteredQuestions.length)} questions selected for the test
             {numberOfItems > filteredQuestions.length && (
-              <span className="text-orange-600 ml-2">
+              <span className="text-orange-600 dark:text-orange-400 ml-2">
                 (Requested {numberOfItems}, but only {filteredQuestions.length} available)
               </span>
             )}
@@ -647,7 +651,7 @@ export default function QuestionFilterPage() {
         </div>
 
         <div className="mb-8">
-          <h2 className="text-xl font-bold text-gray-800 mb-6">Test Configuration</h2>
+          <h2 className="text-xl font-bold text-gray-900 dark:text-gray-200 mb-6">Test Configuration</h2>
           <div className="flex flex-col md:flex-row justify-between gap-8">
             <div className="flex items-center">
               <button
@@ -656,7 +660,7 @@ export default function QuestionFilterPage() {
                   useTimer
                     ? "from-green-400 to-green-700 bg-right"
                     : "from-gray-300 to-gray-500 bg-left"
-                }`}
+                } backdrop-blur-sm border border-white/40 dark:border-gray-700/30`}
                 aria-label="Toggle timer"
               >
                 <span
@@ -665,7 +669,7 @@ export default function QuestionFilterPage() {
                   }`}
                 ></span>
               </button>
-              <label htmlFor="timerCheckbox" className="ml-3 cursor-pointer">
+              <label htmlFor="timerCheckbox" className="ml-3 cursor-pointer text-gray-900 dark:text-gray-300">
                 Use timer
               </label>
               {useTimer && (
@@ -673,7 +677,7 @@ export default function QuestionFilterPage() {
                   type="number"
                   value={testDuration}
                   onChange={(e) => setTestDuration(e.target.value || "90")}
-                  className="ml-3 border border-gray-300 rounded px-3 py-2 w-24"
+                  className="ml-3 border border-white/40 dark:border-gray-700/30 rounded px-3 py-2 w-24 bg-white/30 dark:bg-black/10 backdrop-blur-sm text-gray-900 dark:text-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-600"
                   min="10"
                   max="3600"
                   placeholder="Duration (seconds)"
@@ -682,17 +686,17 @@ export default function QuestionFilterPage() {
             </div>
 
             <div className="flex-1">
-              <h3 className="font-medium text-gray-700 mb-4">Number of Items</h3>
+              <h3 className="font-medium text-gray-900 dark:text-gray-200 mb-4">Number of Items</h3>
               <input
                 type="number"
                 value={numberOfItems}
                 onChange={(e) => setNumberOfItems(parseInt(e.target.value) || 1)}
-                className="border border-gray-300 rounded px-3 py-2 w-24"
+                className="border border-white/40 dark:border-gray-700/30 rounded px-3 py-2 w-24 bg-white/30 dark:bg-black/10 backdrop-blur-sm text-gray-900 dark:text-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-600"
                 min="1"
                 max={filteredQuestions.length || 150}
               />
               {filteredQuestions.length > 0 && numberOfItems > filteredQuestions.length && (
-                <p className="text-sm text-orange-600 mt-1">
+                <p className="text-sm text-orange-600 dark:text-orange-400 mt-1">
                   Max available: {filteredQuestions.length}
                 </p>
               )}
@@ -703,7 +707,7 @@ export default function QuestionFilterPage() {
         <div className="flex justify-between mt-8">
           <button
             onClick={() => navigate("/dashboard")}
-            className="border border-gray-300 bg-white text-gray-700 px-4 py-2 rounded flex items-center"
+            className="border border-white/40 dark:border-gray-700/30 bg-white/30 dark:bg-black/10 text-gray-900 dark:text-gray-300 px-4 py-2 rounded flex items-center hover:bg-white/40 dark:hover:bg-black/20 backdrop-blur-sm"
           >
             <ArrowLeft size={16} className="mr-2" /> Back to Dashboard
           </button>
@@ -711,11 +715,11 @@ export default function QuestionFilterPage() {
           <button
             onClick={startTest}
             disabled={isLoading || selectedSubjects.size === 0 || filteredQuestions.length === 0}
-            className={`${
+            className={`px-8 py-2 rounded backdrop-blur-sm border border-white/40 dark:border-gray-700/20 ${
               selectedSubjects.size > 0 && filteredQuestions.length > 0
-                ? "bg-green-600 hover:bg-green-700 text-white"
-                : "bg-gray-200 text-gray-700 cursor-not-allowed"
-            } px-8 py-2 rounded`}
+                ? "bg-green-600/90 dark:bg-green-600/80 hover:bg-green-700/95 dark:hover:bg-green-500/90 text-white"
+                : "bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-400 cursor-not-allowed"
+            }`}
           >
             {isLoading
               ? "Starting..."

@@ -47,8 +47,7 @@ function LandingPage() {
                 <a href="#features" className="border-transparent text-gray-500 dark:text-gray-400 hover:border-gray-300 dark:hover:border-indigo-500 hover:text-gray-700 dark:hover:text-gray-200 inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium">
                   Features
                 </a>
-                <a href="#pricing" className="border-transparent text-gray-5
-System: 00 dark:text-gray-400 hover:border-gray-300 dark:hover:border-indigo-500 hover:text-gray-700 dark:hover:text-gray-200 inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium">
+                <a href="#pricing" className="border-transparent text-gray-5 System: 00 dark:text-gray-400 hover:border-gray-300 dark:hover:border-indigo-500 hover:text-gray-700 dark:hover:text-gray-200 inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium">
                   Pricing
                 </a>
                 <a href="#faq" className="border-transparent text-gray-500 dark:text-gray-400 hover:border-gray-300 dark:hover:border-indigo-500 hover:text-gray-700 dark:hover:text-gray-200 inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium">
@@ -153,7 +152,7 @@ System: 00 dark:text-gray-400 hover:border-gray-300 dark:hover:border-indigo-500
             Elevate Your Learning Experience
           </h1>
           <p className="mt-6 max-w-lg mx-auto text-xl text-gray-500 dark:text-gray-300">
-            Create, share, and master knowledge with Synapaxon's powerful quiz platform.
+            The Most Powerfull Way To Learn Is To Create Your Own Content.
           </p>
           <div className="mt-10 flex justify-center space-x-4">
             <a
@@ -205,9 +204,9 @@ System: 00 dark:text-gray-400 hover:border-gray-300 dark:hover:border-indigo-500
                   </svg>
                 </div>
                 <p className="ml-16 text-lg leading-6 font-medium text-gray-900 dark:text-gray-100">User-Generated Content</p>
-                <p className="mt-2 ml-16 text-base text-gray-500 dark:text-gray-300">
+                {/* <p className="mt-2 ml-16 text-base text-gray-500 dark:text-gray-300">
                   Share your quizzes with the community or keep them private. Discover content from other educators.
-                </p>
+                </p> */}
               </div>
 
               {/* Feature 3 */}
@@ -219,7 +218,8 @@ System: 00 dark:text-gray-400 hover:border-gray-300 dark:hover:border-indigo-500
                 </div>
                 <p className="ml-16 text-lg leading-6 font-medium text-gray-900 dark:text-gray-100">Subscription Plans</p>
                 <p className="mt-2 ml-16 text-base text-gray-500 dark:text-gray-300">
-                  Choose the plan that fits your needs. Free forever option available with premium features for power users.
+                  Choose the plan that fits your needs. 
+                  {/* Free forever option available with premium features for power users. */}
                 </p>
               </div>
             </div>
@@ -259,7 +259,7 @@ System: 00 dark:text-gray-400 hover:border-gray-300 dark:hover:border-indigo-500
                       <svg className="flex-shrink-0 h-5 w-5 text-green-500" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
                         <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
                       </svg>
-                      <p className="ml-3 text-base text-gray-500 dark:text-gray-300">Up to 10 quizzes</p>
+                      <p className="ml-3 text-base text-gray-500 dark:text-gray-300">Up to 5 quizzes</p>
                     </li>
                     <li className="flex items-start">
                       <svg className="flex-shrink-0 h-5 w-5 text-green-500" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
@@ -267,12 +267,12 @@ System: 00 dark:text-gray-400 hover:border-gray-300 dark:hover:border-indigo-500
                       </svg>
                       <p className="ml-3 text-base text-gray-500 dark:text-gray-300">Basic question types</p>
                     </li>
-                    <li className="flex items-start">
+                    {/* <li className="flex items-start">
                       <svg className="flex-shrink-0 h-5 w-5 text-green-500" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
                         <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
                       </svg>
                       <p className="ml-3 text-base text-gray-500 dark:text-gray-300">Community content access</p>
-                    </li>
+                    </li> */}
                   </ul>
                 </div>
               </div>
@@ -300,7 +300,7 @@ System: 00 dark:text-gray-400 hover:border-gray-300 dark:hover:border-indigo-500
                       <svg className="flex-shrink-0 h-5 w-5 text-green-500" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
                         <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
                       </svg>
-                      <p className="ml-3 text-base text-gray-500 dark:text-gray-300">Unlimited quizzes</p>
+                      <p className="ml-3 text-base text-gray-500 dark:text-gray-300">Unlimited Questions Uploads</p>
                     </li>
                     <li className="flex items-start">
                       <svg className="flex-shrink-0 h-5 w-5 text-green-500" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
@@ -327,7 +327,7 @@ System: 00 dark:text-gray-400 hover:border-gray-300 dark:hover:border-indigo-500
               {/* Enterprise Tier */}
               <div className="border border-gray-200 dark:border-gray-700 shadow-sm divide-y divide-gray-200 dark:divide-gray-700 bg-white/20 dark:bg-gray-800/20 backdrop-blur-sm">
                 <div className="p-6">
-                  <h3 className="text-lg leading-6 font-medium text-gray-900 dark:text-gray-100">Enterprise</h3>
+                  <h3 className="text-lg leading-6 font-medium text-gray-900 dark:text-gray-100">Premium</h3>
                   <p className="mt-4 text-sm text-gray-500 dark:text-gray-300">For schools and organizations</p>
                   <p className="mt-8">
                     <span className="text-4xl font-extrabold text-gray-900 dark:text-gray-100">$29</span>
@@ -347,32 +347,32 @@ System: 00 dark:text-gray-400 hover:border-gray-300 dark:hover:border-indigo-500
                       <svg className="flex-shrink-0 h-5 w-5 text-green-500" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
                         <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
                       </svg>
-                      <p className="ml-3 text-base text-gray-500 dark:text-gray-300">All Pro features</p>
+                      <p className="ml-3 text-base text-gray-500 dark:text-gray-300">All Pro Features</p>
                     </li>
                     <li className="flex items-start">
                       <svg className="flex-shrink-0 h-5 w-5 text-green-500" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
                         <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
                       </svg>
-                      <p className="ml-3 text-base text-gray-500 dark:text-gray-300">User management</p>
+                      <p className="ml-3 text-base text-gray-500 dark:text-gray-300">Chat Bot Integration</p>
                     </li>
                     <li className="flex items-start">
                       <svg className="flex-shrink-0 h-5 w-5 text-green-500" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
                         <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
                       </svg>
-                      <p className="ml-3 text-base text-gray-500 dark:text-gray-300">Custom branding</p>
+                      <p className="ml-3 text-base text-gray-500 dark:text-gray-300">Admin Priority Support</p>
                     </li>
                     <li className="flex items-start">
                       <svg className="flex-shrink-0 h-5 w-5 text-green-500" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
                         <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
                       </svg>
-                      <p className="ml-3 text-base text-gray-500 dark:text-gray-300">API access</p>
+                      <p className="ml-3 text-base text-gray-500 dark:text-gray-300">Email Updates</p>
                     </li>
-                    <li className="flex items-start">
+                    {/* <li className="flex items-start">
                       <svg className="flex-shrink-0 h-5 w-5 text-green-500" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
                         <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
                       </svg>
                       <p className="ml-3 text-base text-gray-500 dark:text-gray-300">Dedicated account manager</p>
-                    </li>
+                    </li> */}
                   </ul>
                 </div>
               </div>
@@ -416,23 +416,23 @@ System: 00 dark:text-gray-400 hover:border-gray-300 dark:hover:border-indigo-500
                   How do I create a quiz?
                 </dt>
                 <dd className="mt-2 text-base text-gray-500 dark:text-gray-300">
-                  After signing up, click "Create Quiz" in your dashboard. Our intuitive editor will guide you through adding questions, answers, and multimedia.
+                  After signing up, click "Create Questions" in your dashboard. Our intuitive editor will guide you through adding questions, answers, and multimedia.
                 </dd>
               </div>
-              <div>
+              {/* <div>
                 <dt className="text-lg leading-6 font-medium text-gray-900 dark:text-gray-100">
                   Can I share my quizzes with others?
                 </dt>
                 <dd className="mt-2 text-base text-gray-500 dark:text-gray-300">
                   Absolutely! You can share via link, embed on websites, or contribute to our public library (optional).
                 </dd>
-              </div>
+              </div> */}
               <div>
                 <dt className="text-lg leading-6 font-medium text-gray-900 dark:text-gray-100">
                   What payment methods do you accept?
                 </dt>
                 <dd className="mt-2 text-base text-gray-500 dark:text-gray-300">
-                  We accept all major credit cards (Visa, Mastercard, American Express) and PayPal.
+                  We accept all major credit cards (Visa, Mastercard, American Express) and Stripe.
                 </dd>
               </div>
               <div>
@@ -440,7 +440,7 @@ System: 00 dark:text-gray-400 hover:border-gray-300 dark:hover:border-indigo-500
                   How can I contact support?
                 </dt>
                 <dd className="mt-2 text-base text-gray-500 dark:text-gray-300">
-                  Email us at support@synapaxon.com or use the chat widget in the app. Pro users get priority support.
+                  Email us at support@synapaxon.com or use the chat widget in the app. Premium users get priority support.
                 </dd>
               </div>
             </dl>

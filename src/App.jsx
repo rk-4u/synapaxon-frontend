@@ -51,7 +51,7 @@ function App() {
           <Route index element={<AdminDashboard />} />
           <Route path="analytics" element={<AnalyticsDashboard />} />
           <Route path="users" element={<UserManagement />} />
-          <Route path="questions" element={<QuestionBank />} /> {/* Add this line */}
+          <Route path="questions" element={<QuestionBank />} /> 
           <Route path="subscribers" element={<Subscribers />} />
         </Route>
 
